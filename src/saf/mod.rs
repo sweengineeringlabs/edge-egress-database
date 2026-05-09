@@ -3,7 +3,7 @@
 pub use crate::api::aggregate::Record;
 pub use crate::api::port::{DatabaseGateway, DatabaseRead, DatabaseWrite};
 pub use crate::api::port::database_read::{DatabaseError, DatabaseResult, DbHealthCheck, DbHealthStatus};
-pub use crate::api::value_object::{DatabaseConfig, DatabaseType, IsolationLevel, QueryParams, WriteResult};
+pub use crate::api::value_object::{DatabaseConfig, DatabaseType, IsolationLevel, PaginatedResponse, Pagination, QueryParams, WriteResult};
 
 /// Returns an in-memory database adapter (for testing/development).
 ///
