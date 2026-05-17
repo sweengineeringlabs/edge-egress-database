@@ -50,67 +50,80 @@ async fn test_noop_migration_runner_run_is_idempotent() {
 
 // ── sqlite runner (requires `sqlite` feature) ────────────────────────────────
 //
-// Tests use `sqlite::memory:` to avoid platform-specific file path
-// formatting.  The runner detects `:memory:` and uses max_connections(1)
-// so all method calls share the same in-memory database.
+// Tests use a tempfile-backed SQLite database.  In-memory SQLite is not
+// supported — each rusqlite connection opens a fresh database, so state
+// would not persist between run() and status() calls.
+//
+// Migration files follow refinery naming: V{n}__{description}.sql
 
-/// @covers: migration_runner — connects to in-memory SQLite successfully.
+/// @covers: migration_runner — connects to a SQLite file successfully.
 #[cfg(feature = "sqlite")]
 #[tokio::test]
-async fn test_sqlite_migration_runner_connects_to_in_memory_db() {
-    use swe_edge_egress_database_migration::migration_runner;
+async fn test_sqlite_migration_runner_connects_to_sqlite_file() {
     use std::fs;
+    use swe_edge_egress_database_migration::migration_runner;
 
+    let db_file = tempfile::NamedTempFile::new().expect("temp db file");
     let dir = tempfile::tempdir().expect("temp dir");
-    let migrations_path = dir.path().join("migrations");
-    fs::create_dir(&migrations_path).unwrap();
-    fs::write(migrations_path.join("1__init.sql"), "CREATE TABLE t (id INTEGER PRIMARY KEY);")
-        .unwrap();
+    let migs_path = dir.path().join("migrations");
+    fs::create_dir(&migs_path).unwrap();
+    fs::write(
+        migs_path.join("V1__init.sql"),
+        "CREATE TABLE t (id INTEGER PRIMARY KEY);",
+    )
+    .unwrap();
 
-    migration_runner("sqlite::memory:", migrations_path.to_str().unwrap())
+    let url = format!("sqlite:///{}", db_file.path().to_str().unwrap());
+    migration_runner(&url, migs_path.to_str().unwrap())
         .await
-        .expect("connection to in-memory SQLite must succeed");
+        .expect("connection to SQLite file must succeed");
 }
 
-/// @covers: migration_runner — applies migrations and reports them as applied in status.
+/// @covers: migration_runner — applies migrations and status reflects applied.
 #[cfg(feature = "sqlite")]
 #[tokio::test]
 async fn test_sqlite_migration_runner_applies_migrations_and_status_reflects_applied() {
-    use swe_edge_egress_database_migration::migration_runner;
     use std::fs;
+    use swe_edge_egress_database_migration::migration_runner;
 
+    let db_file = tempfile::NamedTempFile::new().expect("temp db file");
     let dir = tempfile::tempdir().expect("temp dir");
-    let migrations_path = dir.path().join("migrations");
-    fs::create_dir(&migrations_path).unwrap();
+    let migs_path = dir.path().join("migrations");
+    fs::create_dir(&migs_path).unwrap();
     fs::write(
-        migrations_path.join("1__create_users.sql"),
+        migs_path.join("V1__create_users.sql"),
         "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL);",
     )
     .unwrap();
     fs::write(
-        migrations_path.join("2__add_email.sql"),
+        migs_path.join("V2__add_email.sql"),
         "ALTER TABLE users ADD COLUMN email TEXT;",
     )
     .unwrap();
 
-    let runner = migration_runner("sqlite::memory:", migrations_path.to_str().unwrap())
+    let url = format!("sqlite:///{}", db_file.path().to_str().unwrap());
+    let runner = migration_runner(&url, migs_path.to_str().unwrap())
         .await
         .expect("connect");
 
-    // run() applies both pending migrations.
     let applied = runner.run().await.expect("first run must succeed");
-    assert_eq!(applied.len(), 2, "both migrations must be applied on first run");
+    assert_eq!(
+        applied.len(),
+        2,
+        "both migrations must be applied on first run"
+    );
     assert_eq!(applied[0].version, 1);
     assert_eq!(applied[1].version, 2);
 
-    // run() is idempotent — nothing left.
     let second = runner.run().await.expect("second run must succeed");
     assert!(second.is_empty(), "no pending migrations on second run");
 
-    // status() reports both as applied.
     let statuses = runner.status().await.expect("status must succeed");
     assert_eq!(statuses.len(), 2);
-    assert!(statuses.iter().all(|s| s.applied), "all migrations must show as applied");
+    assert!(
+        statuses.iter().all(|s| s.applied),
+        "all migrations must show as applied"
+    );
 }
 
 /// @covers: migration_runner — MigrationsDirectoryNotFound for missing dir.
@@ -119,26 +132,39 @@ async fn test_sqlite_migration_runner_applies_migrations_and_status_reflects_app
 async fn test_sqlite_migration_runner_run_returns_error_for_missing_migrations_dir() {
     use swe_edge_egress_database_migration::migration_runner;
 
-    let runner = migration_runner("sqlite::memory:", "/nonexistent/__swe_edge_migrations__")
+    let db_file = tempfile::NamedTempFile::new().expect("temp db file");
+    let url = format!("sqlite:///{}", db_file.path().to_str().unwrap());
+
+    let runner = migration_runner(&url, "/nonexistent/__swe_edge_migrations__")
         .await
         .expect("connect must succeed even with missing migrations dir");
 
-    let err = runner.run().await.expect_err("run with missing dir must fail");
+    let err = runner
+        .run()
+        .await
+        .expect_err("run with missing dir must fail");
     assert!(
         matches!(err, MigrationError::MigrationsDirectoryNotFound(_)),
         "expected MigrationsDirectoryNotFound, got: {err}",
     );
 }
 
-/// @covers: migration_runner — Connection error for unregistered URL scheme.
+/// @covers: migration_runner — NotConfigured for unrecognised URL scheme.
 #[cfg(feature = "sqlite")]
 #[tokio::test]
-async fn test_migration_runner_returns_connection_error_for_bad_url() {
+async fn test_migration_runner_returns_not_configured_for_unknown_url_scheme() {
     use swe_edge_egress_database_migration::migration_runner;
 
-    match migration_runner("bad://invalid", "./migrations").await {
-        Err(MigrationError::Connection(_)) => {}
-        Err(other) => panic!("expected Connection error, got: {other}"),
-        Ok(_) => panic!("expected error, got Ok"),
-    }
+    let runner = migration_runner("bad://invalid", "./migrations")
+        .await
+        .expect("factory must not fail — connection is lazy");
+
+    let err = runner
+        .run()
+        .await
+        .expect_err("run with unknown scheme must fail");
+    assert!(
+        matches!(err, MigrationError::NotConfigured(_)),
+        "expected NotConfigured, got: {err}",
+    );
 }
