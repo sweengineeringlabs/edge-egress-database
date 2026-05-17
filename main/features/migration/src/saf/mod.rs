@@ -12,26 +12,28 @@ pub fn noop_migration_runner() -> impl MigrationRunner {
     NoopMigrationRunner
 }
 
-/// Connect to a database and return a [`MigrationRunner`] backed by sqlx.
+/// Connect to a database and return a [`MigrationRunner`] backed by refinery.
 ///
-/// The database backend is selected at runtime from the URL scheme —
-/// no recompilation needed to switch from SQLite to PostgreSQL:
+/// The backend is selected at runtime from the URL scheme:
 ///
-/// | URL scheme         | Backend    | Feature required |
-/// |--------------------|------------|-----------------|
-/// | `postgres://…`     | PostgreSQL | `postgres`      |
-/// | `sqlite://…`       | SQLite     | `sqlite`        |
-/// | `sqlite::memory:`  | SQLite in-memory | `sqlite`  |
-/// | `mysql://…`        | MySQL      | `mysql`         |
+/// | URL scheme       | Backend    | Feature required |
+/// |------------------|------------|-----------------|
+/// | `postgres://…`   | PostgreSQL | `postgres`      |
+/// | `sqlite:///…`    | SQLite     | `sqlite`        |
 ///
-/// Multiple features may be active simultaneously; the URL determines
-/// which compiled-in driver handles the connection.
+/// Migration files in `migrations_dir` must follow refinery's naming
+/// convention: `V{n}__{description}.sql` (uppercase V, double underscore).
+///
+/// In-memory SQLite (`sqlite::memory:`) is not supported — each rusqlite
+/// connection opens a fresh database, so state would not persist between
+/// `run()` and `status()` calls.  Use a file path instead, e.g. via
+/// `tempfile::NamedTempFile` in tests.
 ///
 /// # Errors
 ///
-/// Returns [`MigrationError::Connection`] if the database is unreachable,
-/// or [`MigrationError::MigrationsDirectoryNotFound`] if `migrations_dir`
-/// does not exist when `run()` / `status()` / `revert()` is first called.
+/// Returns [`MigrationError::Connection`] if the database is unreachable, or
+/// [`MigrationError::MigrationsDirectoryNotFound`] if `migrations_dir` does
+/// not exist when `run()` / `status()` is called.
 ///
 /// # Example
 ///
@@ -40,19 +42,23 @@ pub fn noop_migration_runner() -> impl MigrationRunner {
 /// # async fn example() -> Result<(), swe_edge_egress_database_migration::MigrationError> {
 /// use swe_edge_egress_database_migration::{migration_runner, MigrationRunner};
 ///
-/// let runner = migration_runner("sqlite::memory:", "./migrations").await?;
+/// let runner = migration_runner("sqlite:///./dev.db", "./migrations").await?;
 /// let applied = runner.run().await?;
 /// println!("applied {} migration(s)", applied.len());
 /// # Ok(())
 /// # }
 /// ```
-#[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
 pub async fn migration_runner(
     database_url: impl Into<String>,
     migrations_dir: impl Into<String>,
 ) -> Result<impl MigrationRunner, MigrationError> {
-    crate::core::sqlx_migration_runner::SqlxMigrationRunner::connect(database_url, migrations_dir)
-        .await
+    Ok(
+        crate::core::refinery_migration_runner::RefineryMigrationRunner::new(
+            database_url,
+            migrations_dir,
+        ),
+    )
 }
 
 #[cfg(test)]
