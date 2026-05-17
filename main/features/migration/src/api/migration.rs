@@ -16,12 +16,20 @@ pub struct Migration {
 impl Migration {
     /// Construct a pending migration (not yet applied).
     pub fn pending(version: i64, description: impl Into<String>) -> Self {
-        Self { version, description: description.into(), applied_at: None }
+        Self {
+            version,
+            description: description.into(),
+            applied_at: None,
+        }
     }
 
     /// Construct an applied migration.
     pub fn applied(version: i64, description: impl Into<String>, at: impl Into<String>) -> Self {
-        Self { version, description: description.into(), applied_at: Some(at.into()) }
+        Self {
+            version,
+            description: description.into(),
+            applied_at: Some(at.into()),
+        }
     }
 }
 
@@ -37,12 +45,18 @@ pub struct MigrationStatus {
 impl MigrationStatus {
     /// Construct a status entry for a migration that has not yet been applied.
     pub fn pending(version: i64, description: impl Into<String>) -> Self {
-        Self { migration: Migration::pending(version, description), applied: false }
+        Self {
+            migration: Migration::pending(version, description),
+            applied: false,
+        }
     }
 
     /// Construct a status entry for a migration that has already been applied.
     pub fn applied(version: i64, description: impl Into<String>, at: impl Into<String>) -> Self {
-        Self { migration: Migration::applied(version, description, at), applied: true }
+        Self {
+            migration: Migration::applied(version, description, at),
+            applied: true,
+        }
     }
 }
 

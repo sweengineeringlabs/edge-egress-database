@@ -50,13 +50,15 @@ pub fn noop_migration_runner() -> impl MigrationRunner {
 /// ```
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
 pub async fn migration_runner(
-    database_url:   impl Into<String>,
+    database_url: impl Into<String>,
     migrations_dir: impl Into<String>,
 ) -> Result<impl MigrationRunner, MigrationError> {
-    Ok(crate::core::refinery_migration_runner::RefineryMigrationRunner::new(
-        database_url,
-        migrations_dir,
-    ))
+    Ok(
+        crate::core::refinery_migration_runner::RefineryMigrationRunner::new(
+            database_url,
+            migrations_dir,
+        ),
+    )
 }
 
 #[cfg(test)]

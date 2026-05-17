@@ -21,16 +21,16 @@ use crate::api::migration_error::MigrationError;
 use crate::api::migration_runner::MigrationRunner;
 
 pub(crate) struct RefineryMigrationRunner {
-    database_url:   String,
+    database_url: String,
     migrations_dir: String,
 }
 
 impl RefineryMigrationRunner {
-    pub(crate) fn new(
-        database_url:   impl Into<String>,
-        migrations_dir: impl Into<String>,
-    ) -> Self {
-        Self { database_url: database_url.into(), migrations_dir: migrations_dir.into() }
+    pub(crate) fn new(database_url: impl Into<String>, migrations_dir: impl Into<String>) -> Self {
+        Self {
+            database_url: database_url.into(),
+            migrations_dir: migrations_dir.into(),
+        }
     }
 }
 
@@ -129,7 +129,10 @@ async fn run_postgres(url: String, dir: String) -> Result<Vec<Migration>, Migrat
     let report = runner
         .run_async(&mut client)
         .await
-        .map_err(|e| MigrationError::Apply { version: 0, reason: e.to_string() })?;
+        .map_err(|e| MigrationError::Apply {
+            version: 0,
+            reason: e.to_string(),
+        })?;
 
     let applied = report
         .applied_migrations()
@@ -172,9 +175,10 @@ async fn run_sqlite(url: String, dir: String) -> Result<Vec<Migration>, Migratio
         let runner = refinery::Runner::new(&migrations);
         let mut conn = rusqlite::Connection::open(&path)
             .map_err(|e| MigrationError::Connection(e.to_string()))?;
-        let report = runner
-            .run(&mut conn)
-            .map_err(|e| MigrationError::Apply { version: 0, reason: e.to_string() })?;
+        let report = runner.run(&mut conn).map_err(|e| MigrationError::Apply {
+            version: 0,
+            reason: e.to_string(),
+        })?;
         let applied = report
             .applied_migrations()
             .iter()
@@ -224,10 +228,7 @@ fn sqlite_path(url: &str) -> Result<String, MigrationError> {
 
 // ── shared helper ──────────────────────────────────────────────────────────────
 
-fn build_statuses(
-    known:   &[refinery::Migration],
-    applied: &HashSet<i64>,
-) -> Vec<MigrationStatus> {
+fn build_statuses(known: &[refinery::Migration], applied: &HashSet<i64>) -> Vec<MigrationStatus> {
     known
         .iter()
         .map(|m| {

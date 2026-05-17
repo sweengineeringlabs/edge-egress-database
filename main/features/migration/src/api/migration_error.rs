@@ -56,7 +56,10 @@ mod tests {
 
     #[test]
     fn test_apply_error_display_includes_version_and_source() {
-        let e = MigrationError::Apply { version: 3, reason: "syntax error".into() };
+        let e = MigrationError::Apply {
+            version: 3,
+            reason: "syntax error".into(),
+        };
         let s = e.to_string();
         assert!(s.contains('3'));
         assert!(s.contains("syntax error"));
