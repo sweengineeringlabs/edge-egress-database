@@ -1,5 +1,0 @@
-[advisories]
-# RUSTSEC-2023-0071: Marvin Attack timing sidechannel in rsa 0.9.x
-# Pulled in transitively by sqlx-mysql. No fixed version of rsa exists yet;
-# tracked upstream at https://github.com/launchbadge/sqlx/issues/3148
-ignore = ["RUSTSEC-2023-0071"]

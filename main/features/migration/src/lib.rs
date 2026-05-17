@@ -1,18 +1,16 @@
-//! `swe-edge-egress-database-migration` — database-agnostic migration runner.
+//! `swe-edge-egress-database-migration` — database migration runner.
 //!
-//! Provides the [`MigrationRunner`] trait and a single sqlx `AnyPool`-backed
-//! implementation. The database backend is selected at runtime from the
-//! connection URL — no recompilation needed to switch from SQLite in dev to
-//! PostgreSQL in production.
+//! Provides the [`MigrationRunner`] trait backed by refinery.  Each database
+//! driver is an independent optional feature — enabling `postgres` never pulls
+//! in SQLite code and vice versa.
 //!
-//! | Feature    | Driver compiled in | URL scheme     |
-//! |------------|--------------------|----------------|
-//! _(none)_    | —                  | —              |
-//! `postgres`  | PostgreSQL         | `postgres://…` |
-//! `sqlite`    | SQLite             | `sqlite://…`   |
-//! `mysql`     | MySQL              | `mysql://…`    |
+//! | Feature    | Driver     | URL scheme       |
+//! |------------|------------|------------------|
+//! _(none)_    | —          | —                |
+//! `postgres`  | PostgreSQL | `postgres://…`   |
+//! `sqlite`    | SQLite     | `sqlite:///…`    |
 //!
-//! Multiple features may be active simultaneously.
+//! Migration files must follow refinery naming: `V{n}__{description}.sql`
 //!
 //! # Quick start — no-op (always available)
 //!
@@ -34,16 +32,9 @@
 //! # async fn example() -> Result<(), swe_edge_egress_database_migration::MigrationError> {
 //! use swe_edge_egress_database_migration::{migration_runner, MigrationRunner};
 //!
-//! // URL scheme selects the backend at runtime — switch to postgres:// for PostgreSQL.
-//! let runner = migration_runner("sqlite::memory:", "./migrations").await?;
+//! let runner = migration_runner("sqlite:///./dev.db", "./migrations").await?;
 //! let applied = runner.run().await?;
 //! println!("applied {} migration(s)", applied.len());
-//!
-//! let status = runner.status().await?;
-//! for s in &status {
-//!     println!("v{} {} — {}", s.migration.version, s.migration.description,
-//!         if s.applied { "applied" } else { "pending" });
-//! }
 //! # Ok(())
 //! # }
 //! ```

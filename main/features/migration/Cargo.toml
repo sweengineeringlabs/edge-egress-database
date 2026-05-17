@@ -6,8 +6,8 @@ license.workspace      = true
 rust-version.workspace = true
 authors.workspace      = true
 repository.workspace   = true
-description  = "Database migration runner for swe-edge — MigrationRunner trait with sqlx-backed implementations behind postgres/sqlite/mysql feature flags."
-keywords     = ["migration", "database", "sqlx", "sea", "swe"]
+description  = "Database migration runner for swe-edge — MigrationRunner trait with refinery-backed implementations behind postgres/sqlite feature flags."
+keywords     = ["migration", "database", "refinery", "sea", "swe"]
 categories   = ["database"]
 
 [package.metadata.struct-engine]
@@ -19,20 +19,19 @@ path = "src/lib.rs"
 
 [features]
 default  = []
-# Each flag compiles in the named driver AND the Any runtime dispatcher.
-# Multiple flags can be active simultaneously — the URL scheme selects
-# the driver at runtime: postgres://, sqlite://, mysql://.
-postgres = ["sqlx/postgres", "sqlx/runtime-tokio-native-tls", "sqlx/any"]
-sqlite   = ["sqlx/sqlite",   "sqlx/runtime-tokio-native-tls", "sqlx/any"]
-mysql    = ["sqlx/mysql",    "sqlx/runtime-tokio-native-tls", "sqlx/any"]
+postgres = ["dep:tokio-postgres", "refinery/tokio-postgres"]
+sqlite   = ["dep:rusqlite",       "refinery/rusqlite"]
+# mysql omitted: mysql_async pulls in rsa 0.9.x (RUSTSEC-2023-0071, no fix available upstream)
 
 [dependencies]
+refinery       = { version = "0.8", default-features = false }
+tokio-postgres = { version = "0.7", optional = true }
+rusqlite       = { version = "0.31", optional = true, features = ["bundled"] }
 thiserror.workspace   = true
 async-trait.workspace = true
 futures.workspace     = true
 serde.workspace       = true
-tokio                 = { workspace = true, features = ["rt"] }
-sqlx                  = { workspace = true, optional = true, features = ["macros", "migrate", "any"] }
+tokio                 = { workspace = true, features = ["rt", "rt-multi-thread"] }
 
 [dev-dependencies]
 tokio    = { workspace = true, features = ["macros", "rt-multi-thread"] }
