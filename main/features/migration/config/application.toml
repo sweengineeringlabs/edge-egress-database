@@ -1,0 +1,6 @@
+# swe-edge-egress-database-migration — default configuration.
+#
+# Read by consumers via swe_edge_config::load_section("database.migration").
+
+# [database.migration]
+# migrations_dir = "./migrations"

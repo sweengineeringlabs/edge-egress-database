@@ -1,0 +1,35 @@
+[package]
+name         = "swe-edge-egress-database-migration"
+version.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+repository.workspace   = true
+description  = "Database migration runner for swe-edge — MigrationRunner trait with sqlx-backed implementations behind postgres/sqlite/mysql feature flags."
+keywords     = ["migration", "database", "sqlx", "sea", "swe"]
+categories   = ["database"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type     = "processor"
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default  = []
+postgres = ["sqlx/postgres", "sqlx/runtime-tokio-native-tls"]
+sqlite   = ["sqlx/sqlite", "sqlx/runtime-tokio-native-tls"]
+mysql    = ["sqlx/mysql", "sqlx/runtime-tokio-native-tls"]
+
+[dependencies]
+thiserror.workspace   = true
+async-trait.workspace = true
+futures.workspace     = true
+serde.workspace       = true
+tokio                 = { workspace = true, features = ["rt"] }
+sqlx                  = { workspace = true, optional = true, features = ["macros", "migrate"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
