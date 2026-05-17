@@ -7,38 +7,52 @@ use crate::core::noop_migration_runner::NoopMigrationRunner;
 /// any database.
 ///
 /// Use in tests or in services that manage migrations externally and only
-/// need a concrete runner in the type signature.
+/// need a concrete `MigrationRunner` in the type signature.
 pub fn noop_migration_runner() -> impl MigrationRunner {
     NoopMigrationRunner
 }
 
-/// Returns a PostgreSQL [`MigrationRunner`] backed by sqlx.
+/// Connect to a database and return a [`MigrationRunner`] backed by sqlx.
 ///
-/// Migrations are loaded from `migrations_dir` at runtime — sqlx naming
-/// convention: `V{version}__{description}.sql` and optionally
-/// `V{version}__{description}.down.sql` for reversible migrations.
+/// The database backend is selected at runtime from the URL scheme —
+/// no recompilation needed to switch from SQLite to PostgreSQL:
+///
+/// | URL scheme         | Backend    | Feature required |
+/// |--------------------|------------|-----------------|
+/// | `postgres://…`     | PostgreSQL | `postgres`      |
+/// | `sqlite://…`       | SQLite     | `sqlite`        |
+/// | `sqlite::memory:`  | SQLite in-memory | `sqlite`  |
+/// | `mysql://…`        | MySQL      | `mysql`         |
+///
+/// Multiple features may be active simultaneously; the URL determines
+/// which compiled-in driver handles the connection.
 ///
 /// # Errors
 ///
-/// Returns [`MigrationError::MigrationsDirectoryNotFound`] if `migrations_dir`
-/// does not exist or is not readable.
-#[cfg(feature = "postgres")]
-pub fn postgres_migration_runner(
-    database_url: impl Into<String>,
-    migrations_dir: impl Into<String>,
-) -> impl MigrationRunner {
-    crate::core::sqlx_migration_runner::SqlxMigrationRunner::new(database_url, migrations_dir)
-}
-
-/// Returns a SQLite [`MigrationRunner`] backed by sqlx.
+/// Returns [`MigrationError::Connection`] if the database is unreachable,
+/// or [`MigrationError::MigrationsDirectoryNotFound`] if `migrations_dir`
+/// does not exist when `run()` / `status()` / `revert()` is first called.
 ///
-/// Same semantics as [`postgres_migration_runner`].
-#[cfg(all(feature = "sqlite", not(feature = "postgres")))]
-pub fn sqlite_migration_runner(
+/// # Example
+///
+/// ```rust,no_run
+/// # #[cfg(feature = "sqlite")]
+/// # async fn example() -> Result<(), swe_edge_egress_database_migration::MigrationError> {
+/// use swe_edge_egress_database_migration::{migration_runner, MigrationRunner};
+///
+/// let runner = migration_runner("sqlite::memory:", "./migrations").await?;
+/// let applied = runner.run().await?;
+/// println!("applied {} migration(s)", applied.len());
+/// # Ok(())
+/// # }
+/// ```
+#[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
+pub async fn migration_runner(
     database_url: impl Into<String>,
     migrations_dir: impl Into<String>,
-) -> impl MigrationRunner {
-    crate::core::sqlx_migration_runner::SqlxMigrationRunner::new(database_url, migrations_dir)
+) -> Result<impl MigrationRunner, MigrationError> {
+    crate::core::sqlx_migration_runner::SqlxMigrationRunner::connect(database_url, migrations_dir)
+        .await
 }
 
 #[cfg(test)]
@@ -67,7 +81,7 @@ mod tests {
     }
 
     #[test]
-    fn test_noop_migration_runner_is_returnable_as_dyn_trait() {
+    fn test_noop_migration_runner_is_usable_as_dyn_trait() {
         fn accept(_: &dyn MigrationRunner) {}
         let r = noop_migration_runner();
         accept(&r);

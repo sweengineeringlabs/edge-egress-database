@@ -1482,6 +1482,7 @@ dependencies = [
  "futures",
  "serde",
  "sqlx",
+ "tempfile",
  "thiserror",
  "tokio",
 ]

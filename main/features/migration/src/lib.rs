@@ -1,36 +1,50 @@
-//! `swe-edge-egress-database-migration` — database migration runner.
+//! `swe-edge-egress-database-migration` — database-agnostic migration runner.
 //!
-//! Provides the [`MigrationRunner`] trait and concrete implementations
-//! behind feature flags:
+//! Provides the [`MigrationRunner`] trait and a single sqlx `AnyPool`-backed
+//! implementation. The database backend is selected at runtime from the
+//! connection URL — no recompilation needed to switch from SQLite in dev to
+//! PostgreSQL in production.
 //!
-//! | Feature | Runner factory | Backend |
-//! |---------|---------------|---------|
-//! _(none)_ | [`noop_migration_runner`] | In-process no-op |
-//! `postgres` | [`postgres_migration_runner`] | PostgreSQL via sqlx |
-//! `sqlite` | [`sqlite_migration_runner`] | SQLite via sqlx |
+//! | Feature    | Driver compiled in | URL scheme     |
+//! |------------|--------------------|----------------|
+//! _(none)_    | —                  | —              |
+//! `postgres`  | PostgreSQL         | `postgres://…` |
+//! `sqlite`    | SQLite             | `sqlite://…`   |
+//! `mysql`     | MySQL              | `mysql://…`    |
 //!
-//! # Quick start
+//! Multiple features may be active simultaneously.
 //!
-//! ```rust,no_run
+//! # Quick start — no-op (always available)
+//!
+//! ```rust
 //! use swe_edge_egress_database_migration::{noop_migration_runner, MigrationRunner};
 //!
 //! # #[tokio::main]
 //! # async fn main() {
 //! let runner = noop_migration_runner();
 //! let applied = runner.run().await.unwrap();
-//! println!("applied: {}", applied.len());
+//! assert!(applied.is_empty());
 //! # }
 //! ```
 //!
-//! With the `postgres` feature:
+//! # Quick start — SQLite (with `sqlite` feature)
 //!
 //! ```rust,no_run
-//! # #[cfg(feature = "postgres")]
-//! # async fn example() {
-//! use swe_edge_egress_database_migration::postgres_migration_runner;
+//! # #[cfg(feature = "sqlite")]
+//! # async fn example() -> Result<(), swe_edge_egress_database_migration::MigrationError> {
+//! use swe_edge_egress_database_migration::{migration_runner, MigrationRunner};
 //!
-//! let runner = postgres_migration_runner("postgres://localhost/mydb", "./migrations");
-//! let applied = runner.run().await.unwrap();
+//! // URL scheme selects the backend at runtime — switch to postgres:// for PostgreSQL.
+//! let runner = migration_runner("sqlite::memory:", "./migrations").await?;
+//! let applied = runner.run().await?;
+//! println!("applied {} migration(s)", applied.len());
+//!
+//! let status = runner.status().await?;
+//! for s in &status {
+//!     println!("v{} {} — {}", s.migration.version, s.migration.description,
+//!         if s.applied { "applied" } else { "pending" });
+//! }
+//! # Ok(())
 //! # }
 //! ```
 
