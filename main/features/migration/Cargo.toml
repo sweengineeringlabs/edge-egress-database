@@ -1,0 +1,37 @@
+[package]
+name         = "swe-edge-egress-database-migration"
+version.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+repository.workspace   = true
+description  = "Database migration runner for swe-edge — MigrationRunner trait with refinery-backed implementations behind postgres/sqlite feature flags."
+keywords     = ["migration", "database", "refinery", "sea", "swe"]
+categories   = ["database"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type     = "processor"
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default  = []
+postgres = ["dep:tokio-postgres", "refinery/tokio-postgres"]
+sqlite   = ["dep:rusqlite",       "refinery/rusqlite"]
+# mysql omitted: mysql_async pulls in rsa 0.9.x (RUSTSEC-2023-0071, no fix available upstream)
+
+[dependencies]
+refinery       = { version = "0.8", default-features = false }
+tokio-postgres = { version = "0.7", optional = true }
+rusqlite       = { version = "0.31", optional = true, features = ["bundled"] }
+thiserror.workspace   = true
+futures.workspace     = true
+serde.workspace       = true
+tokio                 = { workspace = true, features = ["rt", "rt-multi-thread"] }
+
+[dev-dependencies]
+tokio    = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tempfile = "3"
