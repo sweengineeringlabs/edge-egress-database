@@ -157,7 +157,7 @@ async fn status_postgres(url: String, dir: String) -> Result<Vec<MigrationStatus
     let applied: HashSet<i64> = client
         .query("SELECT version FROM refinery_schema_history", &[])
         .await
-        .unwrap_or_default()
+        .unwrap_or_default() // table absent → no applied migrations; real errors surface on next write
         .iter()
         .map(|row| row.get::<_, i64>(0))
         .collect();
