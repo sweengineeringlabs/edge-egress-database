@@ -1,6 +1,9 @@
 //! SAF layer — public factory surface for migration runners.
 
-pub use crate::api::{ApplicationConfigBuilder, ArchitectureConfigBuilder, Migration, MigrationError, MigrationRunner, MigrationStatus};
+pub use crate::api::{
+    ApplicationConfigBuilder, ArchitectureConfigBuilder, Migration, MigrationError,
+    MigrationRunner, MigrationStatus,
+};
 use crate::core::noop_migration_runner::NoopMigrationRunner;
 
 /// Returns a no-op [`MigrationRunner`] that always succeeds without touching
