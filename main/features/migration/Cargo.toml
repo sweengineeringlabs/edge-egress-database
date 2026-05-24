@@ -30,7 +30,8 @@ rusqlite       = { version = "0.31", optional = true, features = ["bundled"] }
 thiserror.workspace   = true
 futures.workspace     = true
 serde.workspace       = true
-tokio                 = { workspace = true, features = ["rt", "rt-multi-thread"] }
+tokio                  = { workspace = true, features = ["rt", "rt-multi-thread"] }
+swe-edge-configbuilder = { git = "ssh://git@github.com/sweengineeringlabs/edge.git", tag = "v0.4.2" }
 
 [dev-dependencies]
 tokio    = { workspace = true, features = ["macros", "rt-multi-thread"] }
