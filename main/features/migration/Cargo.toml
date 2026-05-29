@@ -31,7 +31,7 @@ thiserror.workspace   = true
 futures.workspace     = true
 serde.workspace       = true
 tokio                  = { workspace = true, features = ["rt", "rt-multi-thread"] }
-swe-edge-configbuilder = { git = "ssh://git@github.com/sweengineeringlabs/edge.git", tag = "v0.4.2" }
+swe-edge-configbuilder = { git = "ssh://git@github.com/sweengineeringlabs/edge.git", tag = "v0.4.5" }
 
 [dev-dependencies]
 tokio    = { workspace = true, features = ["macros", "rt-multi-thread"] }
