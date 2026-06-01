@@ -31,8 +31,66 @@ thiserror.workspace   = true
 futures.workspace     = true
 serde.workspace       = true
 tokio                  = { workspace = true, features = ["rt", "rt-multi-thread"] }
-swe-edge-configbuilder = { path = "../../../../../configbuilder/main/features/configbuilder" }
+swe-edge-configbuilder.workspace = true
 
 [dev-dependencies]
-tokio    = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tempfile = "3"
+tokio                  = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tempfile               = "3"
+swe-edge-configbuilder.workspace = true
+futures.workspace      = true
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+
+[[test]]
+name = "migration_runner_int_test"
+path = "tests/migration_runner_int_test.rs"
+
+[[test]]
+name = "migration_int_test"
+path = "tests/migration_int_test.rs"
+
+[[test]]
+name = "migration_error_int_test"
+path = "tests/migration_error_int_test.rs"
+
+[[test]]
+name = "migration_runner_trait_int_test"
+path = "tests/migration_runner_trait_int_test.rs"
+
+[[test]]
+name = "refinery_migration_runner_int_test"
+path = "tests/refinery_migration_runner_int_test.rs"
+
+[[test]]
+name = "saf_int_test"
+path = "tests/saf_int_test.rs"
+
+[[test]]
+name = "migration_status_int_test"
+path = "tests/migration_status_int_test.rs"
+
+[[test]]
+name = "processor_int_test"
+path = "tests/processor_int_test.rs"
+
+[[test]]
+name = "validator_int_test"
+path = "tests/validator_int_test.rs"
+
+[[test]]
+name = "application_config_builder_int_test"
+path = "tests/application_config_builder_int_test.rs"
+
+[[test]]
+name = "migration_svc_int_test"
+path = "tests/migration_svc_int_test.rs"
+
+[[test]]
+name = "egress_int_test"
+path = "tests/egress_int_test.rs"
+
+[[test]]
+name = "tokio_postgres_dep_int_test"
+path = "tests/tokio_postgres_dep_int_test.rs"

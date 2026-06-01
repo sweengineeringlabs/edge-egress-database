@@ -1,9 +1,9 @@
-//! Public API — traits and value objects for database migration.
+//! Public API — traits, value objects, and error types for database migration.
 
-pub mod migration;
-pub mod migration_error;
-pub mod migration_runner;
-
-pub use migration::{Migration, MigrationStatus};
-pub use migration_error::MigrationError;
-pub use migration_runner::MigrationRunner;
+pub(crate) mod error;
+pub(crate) mod migration;
+pub(crate) mod noop;
+pub(crate) mod processor;
+pub(crate) mod refinery;
+pub(crate) mod traits;
+pub(crate) mod types;

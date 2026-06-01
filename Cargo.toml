@@ -15,3 +15,4 @@ thiserror   = "2"
 futures     = "0.3"
 serde       = { version = "1.0", features = ["derive"] }
 tokio       = { version = "1.0" }
+swe-edge-configbuilder = { path = "../../configbuilder/main/features/configbuilder" }

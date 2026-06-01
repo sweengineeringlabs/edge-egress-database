@@ -1109,9 +1109,9 @@ dependencies = [
 [[package]]
 name = "swe-edge-configbuilder"
 version = "0.1.0"
-source = "git+ssh://git@github.com/sweengineeringlabs/edge.git?tag=v0.4.2#e928583725cc091fd46d3be42d8b3365b38dc6ea"
 dependencies = [
  "dirs",
+ "regex",
  "serde",
  "thiserror 2.0.18",
  "toml",

@@ -1,13 +1,13 @@
 //! Integration tests for the migration runner public API.
 
-use swe_edge_egress_database_migration::{noop_migration_runner, MigrationError, MigrationRunner};
+use swe_edge_egress_database_migration::{MigrationError, MigrationRunner, MigrationSvc};
 
 // ── noop runner (no features required) ───────────────────────────────────────
 
 /// @covers: noop_migration_runner — run returns empty list.
 #[tokio::test]
 async fn test_noop_migration_runner_run_returns_empty_list() {
-    let runner = noop_migration_runner();
+    let runner = MigrationSvc::noop_migration_runner();
     let applied = runner.run().await.expect("noop run must succeed");
     assert!(applied.is_empty(), "noop runner must apply no migrations");
 }
@@ -15,7 +15,7 @@ async fn test_noop_migration_runner_run_returns_empty_list() {
 /// @covers: noop_migration_runner — status returns empty list.
 #[tokio::test]
 async fn test_noop_migration_runner_status_returns_empty_list() {
-    let runner = noop_migration_runner();
+    let runner = MigrationSvc::noop_migration_runner();
     let statuses = runner.status().await.expect("noop status must succeed");
     assert!(statuses.is_empty(), "noop runner has no known migrations");
 }
@@ -23,7 +23,7 @@ async fn test_noop_migration_runner_status_returns_empty_list() {
 /// @covers: noop_migration_runner — revert returns NoMigrationToRevert.
 #[tokio::test]
 async fn test_noop_migration_runner_revert_returns_no_migration_to_revert_error() {
-    let runner = noop_migration_runner();
+    let runner = MigrationSvc::noop_migration_runner();
     let err = runner.revert().await.expect_err("noop revert must fail");
     assert!(
         matches!(err, MigrationError::NoMigrationToRevert),
@@ -35,14 +35,14 @@ async fn test_noop_migration_runner_revert_returns_no_migration_to_revert_error(
 #[test]
 fn test_migration_runner_can_be_stored_as_arc_dyn_trait() {
     use std::sync::Arc;
-    let runner: Arc<dyn MigrationRunner> = Arc::new(noop_migration_runner());
+    let runner: Arc<dyn MigrationRunner> = Arc::new(MigrationSvc::noop_migration_runner());
     drop(runner);
 }
 
 /// @covers: noop_migration_runner — run is idempotent.
 #[tokio::test]
 async fn test_noop_migration_runner_run_is_idempotent() {
-    let runner = noop_migration_runner();
+    let runner = MigrationSvc::noop_migration_runner();
     let first = runner.run().await.expect("first run");
     let second = runner.run().await.expect("second run");
     assert_eq!(first.len(), second.len());
@@ -61,7 +61,6 @@ async fn test_noop_migration_runner_run_is_idempotent() {
 #[tokio::test]
 async fn test_sqlite_migration_runner_connects_to_sqlite_file() {
     use std::fs;
-    use swe_edge_egress_database_migration::migration_runner;
 
     let db_file = tempfile::NamedTempFile::new().expect("temp db file");
     let dir = tempfile::tempdir().expect("temp dir");
@@ -74,7 +73,7 @@ async fn test_sqlite_migration_runner_connects_to_sqlite_file() {
     .unwrap();
 
     let url = format!("sqlite:///{}", db_file.path().to_str().unwrap());
-    migration_runner(&url, migs_path.to_str().unwrap())
+    MigrationSvc::migration_runner(&url, migs_path.to_str().unwrap())
         .await
         .expect("connection to SQLite file must succeed");
 }
@@ -84,7 +83,6 @@ async fn test_sqlite_migration_runner_connects_to_sqlite_file() {
 #[tokio::test]
 async fn test_sqlite_migration_runner_applies_migrations_and_status_reflects_applied() {
     use std::fs;
-    use swe_edge_egress_database_migration::migration_runner;
 
     let db_file = tempfile::NamedTempFile::new().expect("temp db file");
     let dir = tempfile::tempdir().expect("temp dir");
@@ -102,7 +100,7 @@ async fn test_sqlite_migration_runner_applies_migrations_and_status_reflects_app
     .unwrap();
 
     let url = format!("sqlite:///{}", db_file.path().to_str().unwrap());
-    let runner = migration_runner(&url, migs_path.to_str().unwrap())
+    let runner = MigrationSvc::migration_runner(&url, migs_path.to_str().unwrap())
         .await
         .expect("connect");
 
@@ -130,12 +128,10 @@ async fn test_sqlite_migration_runner_applies_migrations_and_status_reflects_app
 #[cfg(feature = "sqlite")]
 #[tokio::test]
 async fn test_sqlite_migration_runner_run_returns_error_for_missing_migrations_dir() {
-    use swe_edge_egress_database_migration::migration_runner;
-
     let db_file = tempfile::NamedTempFile::new().expect("temp db file");
     let url = format!("sqlite:///{}", db_file.path().to_str().unwrap());
 
-    let runner = migration_runner(&url, "/nonexistent/__swe_edge_migrations__")
+    let runner = MigrationSvc::migration_runner(&url, "/nonexistent/__swe_edge_migrations__")
         .await
         .expect("connect must succeed even with missing migrations dir");
 
@@ -153,9 +149,7 @@ async fn test_sqlite_migration_runner_run_returns_error_for_missing_migrations_d
 #[cfg(feature = "sqlite")]
 #[tokio::test]
 async fn test_migration_runner_returns_not_configured_for_unknown_url_scheme() {
-    use swe_edge_egress_database_migration::migration_runner;
-
-    let runner = migration_runner("bad://invalid", "./migrations")
+    let runner = MigrationSvc::migration_runner("bad://invalid", "./migrations")
         .await
         .expect("factory must not fail — connection is lazy");
 

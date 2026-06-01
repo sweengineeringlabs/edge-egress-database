@@ -1,4 +1,5 @@
-pub(crate) mod noop_migration_runner;
+pub(crate) mod noop;
+pub(crate) mod processor;
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
-pub(crate) mod refinery_migration_runner;
+pub(crate) mod refinery;

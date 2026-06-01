@@ -1,0 +1,1 @@
+//! Inbound integration boundary.

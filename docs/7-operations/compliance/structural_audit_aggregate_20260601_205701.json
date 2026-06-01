@@ -1,0 +1,15 @@
+{
+  "members": [
+    {
+      "failed": 26,
+      "member": "main/features/migration",
+      "passed": 134,
+      "skipped": 0
+    }
+  ],
+  "mode": "package",
+  "timestamp": "2026-06-01T20:57:02.037578800+02:00",
+  "total_failed": 26,
+  "total_members": 1,
+  "total_passed": 134
+}

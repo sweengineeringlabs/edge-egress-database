@@ -6,9 +6,9 @@
 
 use futures::future::BoxFuture;
 
+use crate::api::error::MigrationError;
 use crate::api::migration::{Migration, MigrationStatus};
-use crate::api::migration_error::MigrationError;
-use crate::api::migration_runner::MigrationRunner;
+use crate::api::traits::migration_runner::MigrationRunner;
 
 pub(crate) struct NoopMigrationRunner;
 
@@ -31,21 +31,21 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_run_returns_empty_vec() {
+    async fn test_run_noop_runner_returns_empty_vec() {
         let r = NoopMigrationRunner;
         let applied = r.run().await.expect("noop run must succeed");
         assert!(applied.is_empty(), "noop runner must apply no migrations");
     }
 
     #[tokio::test]
-    async fn test_status_returns_empty_vec() {
+    async fn test_status_noop_runner_returns_empty_vec() {
         let r = NoopMigrationRunner;
         let statuses = r.status().await.expect("noop status must succeed");
         assert!(statuses.is_empty(), "noop runner has no known migrations");
     }
 
     #[tokio::test]
-    async fn test_revert_returns_no_migration_to_revert() {
+    async fn test_revert_noop_runner_returns_no_migration_to_revert() {
         let r = NoopMigrationRunner;
         let err = r.revert().await.expect_err("noop revert must fail");
         assert!(

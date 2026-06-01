@@ -1,9 +1,10 @@
-//! `MigrationRunner` — public trait for database schema migration.
+//! `MigrationRunner` — primary trait for database schema migration.
 
 use futures::future::BoxFuture;
 
-use crate::api::migration::{Migration, MigrationStatus};
-use crate::api::migration_error::MigrationError;
+use crate::api::error::MigrationError;
+use crate::api::migration::Migration;
+use crate::api::migration::MigrationStatus;
 
 /// Applies and reverts database migrations.
 ///
@@ -45,12 +46,16 @@ pub trait MigrationRunner: Send + Sync {
     fn status(&self) -> BoxFuture<'_, Result<Vec<MigrationStatus>, MigrationError>>;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl MigrationRunner for Box<dyn MigrationRunner> {
+    fn run(&self) -> BoxFuture<'_, Result<Vec<Migration>, MigrationError>> {
+        (**self).run()
+    }
 
-    #[test]
-    fn test_migration_runner_is_object_safe() {
-        fn _assert(_: &dyn MigrationRunner) {}
+    fn revert(&self) -> BoxFuture<'_, Result<Migration, MigrationError>> {
+        (**self).revert()
+    }
+
+    fn status(&self) -> BoxFuture<'_, Result<Vec<MigrationStatus>, MigrationError>> {
+        (**self).status()
     }
 }
