@@ -42,6 +42,9 @@
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
+// `unwrap`/`expect` are denied in production code but are the idiomatic
+// assertion mechanism in inline `#[cfg(test)]` modules.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod api;
 mod core;

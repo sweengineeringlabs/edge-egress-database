@@ -1,5 +1,7 @@
 //! Integration tests for the SAF public factory surface.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use swe_edge_egress_database_migration::{MigrationError, MigrationRunner, MigrationSvc};
 
 /// @covers: MigrationSvc::noop_migration_runner — run returns empty list.

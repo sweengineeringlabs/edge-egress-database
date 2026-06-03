@@ -4,6 +4,8 @@
 //! The `tokio-postgres` crate is used in `src/core/refinery/refinery_migration_runner.rs`
 //! behind the `postgres` feature flag.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 /// @covers: tokio-postgres dep — connection attempt to unreachable host returns error.
 ///
 /// This test exercises `tokio_postgres::connect` through the public SAF API.

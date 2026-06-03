@@ -3,6 +3,8 @@
 //! Tests cover the refinery-backed runner through the public SAF API,
 //! exercising the SQLite backend (no live Postgres required).
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 // ── sqlite backend (requires `sqlite` feature) ───────────────────────────────
 
 /// @covers: MigrationSvc::migration_runner — connects to a SQLite file successfully.

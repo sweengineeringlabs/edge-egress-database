@@ -1,5 +1,7 @@
 //! Integration tests for the migration runner public API.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use swe_edge_egress_database_migration::{MigrationError, MigrationRunner, MigrationSvc};
 
 // ── noop runner (no features required) ───────────────────────────────────────

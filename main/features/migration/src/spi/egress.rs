@@ -4,6 +4,13 @@
 //! may substitute a custom [`MigrationRunner`] implementation.
 
 /// Extension point marker for downstream migration runner substitution.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "SEA spi/ anchor — constructed only by the inline anchor test"
+    )
+)]
 pub(crate) struct Egress;
 
 #[cfg(test)]

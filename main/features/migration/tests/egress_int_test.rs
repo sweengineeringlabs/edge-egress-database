@@ -3,6 +3,8 @@
 //! The `spi::egress` module is the SEA extension anchor — its presence signals
 //! that downstream consumers may substitute custom [`MigrationRunner`] implementations.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use swe_edge_egress_database_migration::MigrationRunner;
 
 /// Verify the [`MigrationRunner`] trait can be implemented by a downstream consumer.

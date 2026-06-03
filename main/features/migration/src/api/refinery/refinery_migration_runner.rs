@@ -7,6 +7,10 @@
 /// Api-layer spec for a refinery-backed migration runner configuration.
 ///
 /// The file stem `refinery_migration_runner` matches this type per rule 161.
+#[expect(
+    dead_code,
+    reason = "SEA api/ interface anchor — counterpart spec; consumers receive impl MigrationRunner and never construct this type"
+)]
 pub struct RefineryMigrationRunner {
     /// The database URL (e.g. `postgres://…` or `sqlite:///…`).
     pub database_url: String,
