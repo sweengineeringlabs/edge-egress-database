@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members  = ["main/features/migration"]
+members  = ["main/migration"]
 
 [workspace.package]
 version      = "0.1.0"
