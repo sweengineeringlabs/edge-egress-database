@@ -1,11 +1,11 @@
 [package]
 name         = "swe-edge-egress-database-migration"
-version.workspace      = true
-edition.workspace      = true
-license.workspace      = true
-rust-version.workspace = true
-authors.workspace      = true
-repository.workspace   = true
+version      = "0.1.0"
+edition      = "2021"
+license      = "MIT OR Apache-2.0"
+rust-version = "1.95"
+authors      = ["SWE Engineering Labs"]
+repository   = "https://github.com/sweengineeringlabs/edge"
 description  = "Database migration runner for swe-edge — MigrationRunner trait with refinery-backed implementations behind postgres/sqlite feature flags."
 keywords     = ["migration", "database", "refinery", "sea", "swe"]
 categories   = ["database"]
@@ -15,7 +15,7 @@ application_type = "lib"
 service_type     = "processor"
 
 [lib]
-path = "src/lib.rs"
+path = "main/src/lib.rs"
 
 [features]
 default  = []
@@ -27,17 +27,20 @@ sqlite   = ["dep:rusqlite",       "refinery/rusqlite"]
 refinery       = { version = "0.8", default-features = false }
 tokio-postgres = { version = "0.7", optional = true }
 rusqlite       = { version = "0.31", optional = true, features = ["bundled"] }
-thiserror.workspace   = true
-futures.workspace     = true
-serde.workspace       = true
-tokio                  = { workspace = true, features = ["rt", "rt-multi-thread"] }
-swe-edge-configbuilder.workspace = true
+thiserror      = "2"
+futures        = "0.3"
+serde          = { version = "1.0", features = ["derive"] }
+tokio          = { version = "1.0", features = ["rt", "rt-multi-thread"] }
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.1.0" }
 
 [dev-dependencies]
-tokio                  = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tempfile               = "3"
-swe-edge-configbuilder.workspace = true
-futures.workspace      = true
+tokio          = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tempfile       = "3"
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.1.0" }
+futures        = "0.3"
+
+[lints.rust]
+unsafe_code = "deny"
 
 [lints.clippy]
 unwrap_used = "deny"
