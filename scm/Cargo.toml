@@ -1,6 +1,6 @@
 [package]
 name         = "swe-edge-egress-database-migration"
-version      = "0.1.0"
+version      = "0.2.0"
 edition      = "2021"
 license      = "MIT OR Apache-2.0"
 rust-version = "1.95"
@@ -31,12 +31,12 @@ thiserror      = "2"
 futures        = "0.3"
 serde          = { version = "1.0", features = ["derive"] }
 tokio          = { version = "1.0", features = ["rt", "rt-multi-thread"] }
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.1.0" }
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.3.0" }
 
 [dev-dependencies]
 tokio          = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tempfile       = "3"
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.1.0" }
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.3.0" }
 futures        = "0.3"
 
 [lints.rust]
