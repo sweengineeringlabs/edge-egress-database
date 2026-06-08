@@ -9,7 +9,7 @@ use futures::future::BoxFuture;
 use crate::api::error::MigrationError;
 use crate::api::migration::{Migration, MigrationStatus};
 use crate::api::traits::MigrationRunner;
-use crate::spi::sqlx::datasource;
+use crate::spi::sqlx::datasource::SqlxDatasource;
 use crate::spi::sqlx::db_pool::DbPool;
 
 pub(crate) struct SqlxMigrationRunner {
@@ -28,7 +28,9 @@ impl SqlxMigrationRunner {
 
 impl MigrationRunner for SqlxMigrationRunner {
     fn run(&self) -> BoxFuture<'_, Result<Vec<Migration>, MigrationError>> {
-        Box::pin(async move { datasource::run_migrations(&self.pool, &self.migrations_dir).await })
+        Box::pin(
+            async move { SqlxDatasource::run_migrations(&self.pool, &self.migrations_dir).await },
+        )
     }
 
     fn revert(&self) -> BoxFuture<'_, Result<Migration, MigrationError>> {
@@ -41,7 +43,7 @@ impl MigrationRunner for SqlxMigrationRunner {
 
     fn status(&self) -> BoxFuture<'_, Result<Vec<MigrationStatus>, MigrationError>> {
         Box::pin(
-            async move { datasource::migration_status(&self.pool, &self.migrations_dir).await },
+            async move { SqlxDatasource::migration_status(&self.pool, &self.migrations_dir).await },
         )
     }
 }

@@ -67,7 +67,7 @@ impl MigrationSvc {
     /// ```
     #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub async fn connect_and_migrate(cfg: &DatabaseConfig) -> Result<DbPool, MigrationError> {
-        crate::spi::sqlx::datasource::connect_and_migrate(cfg).await
+        crate::spi::sqlx::datasource::SqlxDatasource::connect_and_migrate(cfg).await
     }
 
     /// Open a connection pool for `cfg` **without** running migrations.
@@ -81,7 +81,7 @@ impl MigrationSvc {
     /// - [`MigrationError::Connection`] if the database is unreachable.
     #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub async fn connect(cfg: &DatabaseConfig) -> Result<DbPool, MigrationError> {
-        crate::spi::sqlx::datasource::connect(cfg).await
+        crate::spi::sqlx::datasource::SqlxDatasource::connect(cfg).await
     }
 
     /// Open a pool for `cfg` and return a [`MigrationRunner`] bound to it.
@@ -104,7 +104,7 @@ impl MigrationSvc {
                 "migration_runner requires `migrations_dir` in [database]".into(),
             )
         })?;
-        let pool = crate::spi::sqlx::datasource::connect(cfg).await?;
+        let pool = crate::spi::sqlx::datasource::SqlxDatasource::connect(cfg).await?;
         Ok(Box::new(crate::spi::sqlx::SqlxMigrationRunner::new(
             pool, dir,
         )))

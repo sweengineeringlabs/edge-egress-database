@@ -50,11 +50,11 @@ pub struct DatabaseConfig {
     pub url: String,
 
     /// Maximum number of connections the pool may open. Must be `>= 1`.
-    #[serde(default = "default_max_connections")]
+    #[serde(default = "DatabaseConfig::default_max_connections")]
     pub max_connections: u32,
 
     /// How long to wait for a free connection before returning a timeout error.
-    #[serde(default = "default_acquire_timeout_secs")]
+    #[serde(default = "DatabaseConfig::default_acquire_timeout_secs")]
     pub acquire_timeout_secs: u64,
 
     /// Close idle connections after this many seconds. `None` keeps them open.
@@ -68,12 +68,16 @@ pub struct DatabaseConfig {
     pub migrations_dir: Option<String>,
 }
 
-fn default_max_connections() -> u32 {
-    5
-}
+impl DatabaseConfig {
+    /// Default pool size when `max_connections` is omitted.
+    fn default_max_connections() -> u32 {
+        5
+    }
 
-fn default_acquire_timeout_secs() -> u64 {
-    30
+    /// Default acquire timeout (seconds) when omitted.
+    fn default_acquire_timeout_secs() -> u64 {
+        30
+    }
 }
 
 impl OptionalSection for DatabaseConfig {
