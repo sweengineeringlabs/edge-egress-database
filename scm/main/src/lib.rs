@@ -1,19 +1,19 @@
 //! `swe-edge-egress-database-migration` — database datasource + migration bootstrap.
 //!
 //! A domain-free infrastructure leaf: it owns the `[database]` config contract
-//! ([`DatabaseConfig`]), opens a configured `sqlx` connection pool, applies
-//! pending schema migrations, and hands back a ready [`DbPool`] the consumer
-//! queries through. The DB-backed `edge_domain::Repository` adapters live in the
-//! consumer, not here (see ADR-001).
+//! ([`DatabaseConfig`]), runs pending schema migrations via **refinery**
+//! (RUSTSEC-2023-0071-clean; no rsa dependency), and returns a ready
+//! **deadpool** [`DbPool`] the consumer queries through. The DB-backed
+//! `edge_domain::Repository` adapters live in the consumer, not here (ADR-001).
 //!
-//! | Feature    | Driver     | URL scheme       |
-//! |------------|------------|------------------|
-//! _(none)_    | —          | — (noop only)    |
-//! `postgres`  | PostgreSQL | `postgres://…`   |
-//! `sqlite`    | SQLite     | `sqlite://…`     |
+//! | Feature    | Driver     | URL scheme     |
+//! |------------|------------|----------------|
+//! _(none)_    | —          | — (noop only)  |
+//! `sqlite`    | SQLite     | `sqlite:///…`  |
+//! `postgres`  | PostgreSQL | `postgres://…` |
 //!
-//! Migration files follow `sqlx` naming: `<version>_<description>.sql`
-//! (e.g. `0001_create_metrics.sql`).
+//! Migration files follow **refinery** naming: `V{n}__{description}.sql`
+//! (e.g. `V1__create_metrics.sql`).
 //!
 //! # Quick start — no-op (always available)
 //!
@@ -45,8 +45,8 @@
 //! };
 //!
 //! let pool = MigrationSvc::connect_and_migrate(&cfg).await?;
-//! // `pool.as_sqlite()` yields the concrete sqlx pool for the consumer's
-//! // Repository adapters.
+//! // `pool.as_sqlite()` yields the deadpool-sqlite pool for the consumer's
+//! // Repository adapters. Use `pool.get().await` to borrow a connection.
 //! # let _ = pool;
 //! # Ok(())
 //! # }

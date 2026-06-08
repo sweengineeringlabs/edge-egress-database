@@ -4,5 +4,6 @@ pub(crate) mod error;
 pub(crate) mod migration;
 pub(crate) mod noop;
 pub(crate) mod processor;
+pub(crate) mod refinery;
 pub(crate) mod traits;
 pub(crate) mod types;

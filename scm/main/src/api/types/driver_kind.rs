@@ -8,7 +8,7 @@
 /// snake_case spellings: `"sqlite"` and `"postgres"`.
 ///
 /// This type is technology-neutral (it names no driver library); the concrete
-/// `sqlx` pool that backs each variant lives in `spi/` per ADR-008.
+/// deadpool pool that backs each variant lives in `spi/` per ADR-008.
 ///
 /// [`DatabaseConfig`]: crate::DatabaseConfig
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]

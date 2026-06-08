@@ -6,8 +6,8 @@ license      = "MIT OR Apache-2.0"
 rust-version = "1.95"
 authors      = ["SWE Engineering Labs"]
 repository   = "https://github.com/sweengineeringlabs/edge"
-description  = "Database datasource + migration bootstrap for swe-edge — DatabaseConfig + connect_and_migrate returning a configured, migrated sqlx pool behind postgres/sqlite feature flags."
-keywords     = ["migration", "database", "sqlx", "sea", "swe"]
+description  = "Database datasource + migration bootstrap for swe-edge — DatabaseConfig + connect_and_migrate returning a configured, migrated deadpool (over refinery drivers) behind postgres/sqlite feature flags."
+keywords     = ["migration", "database", "refinery", "sea", "swe"]
 categories   = ["database"]
 
 [package.metadata.struct-engine]
@@ -19,12 +19,16 @@ path = "main/src/lib.rs"
 
 [features]
 default  = []
-postgres = ["sqlx/postgres"]
-sqlite   = ["sqlx/sqlite"]
-# mysql omitted: kept out of scope until a consumer needs it (matches prior posture).
+postgres = ["dep:tokio-postgres", "refinery/tokio-postgres", "dep:deadpool-postgres"]
+sqlite   = ["dep:rusqlite", "refinery/rusqlite", "dep:deadpool-sqlite"]
+# mysql omitted: mysql_async pulls in rsa 0.9.x (RUSTSEC-2023-0071, no upstream fix)
 
 [dependencies]
-sqlx                   = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "migrate"] }
+refinery          = { version = "0.8", default-features = false }
+tokio-postgres    = { version = "0.7", optional = true }
+rusqlite          = { version = "0.31", optional = true, features = ["bundled"] }
+deadpool-postgres = { version = "0.14", optional = true }
+deadpool-sqlite   = { version = ">=0.5", optional = true }
 thiserror              = "2"
 futures                = "0.3"
 serde                  = { version = "1.0", features = ["derive"] }
@@ -35,9 +39,8 @@ swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-con
 tokio                  = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tempfile               = "3"
 toml                   = "0.8"
-# Mirrors how a consumer (e.g. justobserv) queries the returned DbPool to back
-# its edge_domain::Repository adapters — used to prove migrations + pool end-to-end.
-sqlx                   = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+rusqlite               = { version = "0.31", features = ["bundled"] }
+tokio-postgres         = { version = "0.7" }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.3.0" }
 futures                = "0.3"
 

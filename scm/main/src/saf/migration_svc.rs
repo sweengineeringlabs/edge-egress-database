@@ -9,7 +9,7 @@ use crate::api::error::MigrationError;
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
 use crate::api::types::DatabaseConfig;
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
-use crate::spi::sqlx::DbPool;
+use crate::spi::deadpool::DbPool;
 
 impl MigrationSvc {
     /// Return a config builder pre-seeded with this crate's package name and version.
@@ -32,10 +32,11 @@ impl MigrationSvc {
     /// Open a connection pool for `cfg` and run all pending migrations, returning
     /// the ready [`DbPool`].
     ///
-    /// The returned pool has had every migration in `cfg.migrations_dir` applied
-    /// idempotently — running twice applies nothing the second time. Consumers
-    /// query through the concrete `sqlx` pool ([`DbPool::as_sqlite`] /
-    /// [`DbPool::as_postgres`]) to back their `edge_domain::Repository` adapters.
+    /// Migrations are applied by `refinery` on a dedicated connection before the
+    /// pool is opened. Running `connect_and_migrate` twice applies nothing the
+    /// second time — refinery is idempotent. Consumers query through the concrete
+    /// deadpool pool ([`DbPool::as_sqlite`] / [`DbPool::as_postgres`]) to back
+    /// their `edge_domain::Repository` adapters.
     ///
     /// # Errors
     ///
@@ -67,7 +68,18 @@ impl MigrationSvc {
     /// ```
     #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub async fn connect_and_migrate(cfg: &DatabaseConfig) -> Result<DbPool, MigrationError> {
-        crate::spi::sqlx::datasource::SqlxDatasource::connect_and_migrate(cfg).await
+        let dir = cfg.migrations_dir.as_deref().ok_or_else(|| {
+            MigrationError::NotConfigured(
+                "connect_and_migrate requires `migrations_dir` in [database]; \
+                 use connect() to open a pool without migrating"
+                    .into(),
+            )
+        })?;
+        // 1. Run migrations on a fresh connection (refinery, RUSTSEC-clean).
+        let runner = crate::core::refinery::RefineryMigrationRunner::new(cfg.url.as_str(), dir);
+        runner.run().await?;
+        // 2. Open the deadpool (ping included).
+        crate::spi::deadpool::DeadpoolDatasource::connect(cfg).await
     }
 
     /// Open a connection pool for `cfg` **without** running migrations.
@@ -81,20 +93,21 @@ impl MigrationSvc {
     /// - [`MigrationError::Connection`] if the database is unreachable.
     #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub async fn connect(cfg: &DatabaseConfig) -> Result<DbPool, MigrationError> {
-        crate::spi::sqlx::datasource::SqlxDatasource::connect(cfg).await
+        crate::spi::deadpool::DeadpoolDatasource::connect(cfg).await
     }
 
-    /// Open a pool for `cfg` and return a [`MigrationRunner`] bound to it.
+    /// Open a [`MigrationRunner`] bound to `cfg`'s URL and migrations directory.
     ///
     /// Unlike [`connect_and_migrate`](Self::connect_and_migrate), this does not
     /// apply migrations eagerly — the caller drives `run()` / `status()` on the
-    /// returned runner (e.g. to inspect status before applying).
+    /// returned runner (e.g. to inspect status before applying). The runner
+    /// uses a fresh connection per call; call [`connect`](Self::connect) separately
+    /// to obtain a pool for consumer queries.
     ///
     /// # Errors
     ///
     /// - [`MigrationError::NotConfigured`] if `cfg.migrations_dir` is `None`, or
     ///   the driver's cargo feature is off.
-    /// - [`MigrationError::Connection`] if the database is unreachable.
     #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub async fn migration_runner(
         cfg: &DatabaseConfig,
@@ -104,9 +117,8 @@ impl MigrationSvc {
                 "migration_runner requires `migrations_dir` in [database]".into(),
             )
         })?;
-        let pool = crate::spi::sqlx::datasource::SqlxDatasource::connect(cfg).await?;
-        Ok(Box::new(crate::spi::sqlx::SqlxMigrationRunner::new(
-            pool, dir,
-        )))
+        Ok(Box::new(
+            crate::core::refinery::RefineryMigrationRunner::new(cfg.url.as_str(), dir),
+        ))
     }
 }

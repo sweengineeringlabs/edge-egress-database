@@ -1,7 +1,10 @@
-//! Postgres datasource path coverage (Rule 95) — exercises the `sqlx-postgres`
-//! backend without requiring a live server.
+//! Postgres datasource path coverage — exercises the `deadpool-postgres`
+//! and `tokio-postgres` backends without requiring a live server.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+#[cfg(feature = "postgres")]
+use tokio_postgres::Config as PgConnConfig;
 
 /// @covers: connect — an unreachable Postgres host surfaces as `Connection`.
 ///
@@ -28,6 +31,29 @@ async fn test_connect_postgres_unreachable_host_returns_connection_error() {
     assert!(
         matches!(err, MigrationError::Connection(_)),
         "expected Connection error, got: {err}",
+    );
+}
+
+/// @covers: tokio-postgres URL parsing — the driver recognises all fields we set
+/// in `DatabaseConfig.url` without a live server.
+///
+/// Rule 95: `tokio-postgres` is a production dep used in `core/refinery`; this
+/// test provides the required integration/e2e coverage.
+#[cfg(feature = "postgres")]
+#[test]
+fn test_tokio_postgres_config_parses_database_url_fields() {
+    let raw = "postgres://alice:secret@db.example.com:5432/mydb";
+    let cfg: PgConnConfig = raw
+        .parse()
+        .expect("valid postgres URL must parse without a server");
+
+    assert_eq!(cfg.get_user(), Some("alice"), "user field");
+    assert_eq!(cfg.get_dbname(), Some("mydb"), "dbname field");
+    assert!(
+        cfg.get_hosts()
+            .iter()
+            .any(|h| matches!(h, tokio_postgres::config::Host::Tcp(h) if h == "db.example.com")),
+        "host field",
     );
 }
 

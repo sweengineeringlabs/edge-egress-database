@@ -61,7 +61,7 @@ pub struct DatabaseConfig {
     #[serde(default)]
     pub idle_timeout_secs: Option<u64>,
 
-    /// Directory of migration `.sql` files (sqlx naming: `<version>_<desc>.sql`).
+    /// Directory of migration `.sql` files (refinery naming: `V{n}__{desc}.sql`).
     ///
     /// Required by `connect_and_migrate`; optional for `connect` (pool only).
     #[serde(default)]

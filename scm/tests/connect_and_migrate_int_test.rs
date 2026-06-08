@@ -1,7 +1,7 @@
 //! End-to-end tests for `MigrationSvc::connect_and_migrate` / `migration_runner`
 //! against a real SQLite database (tempfile-backed).
 //!
-//! Migration files use sqlx naming: `<version>_<description>.sql`.
+//! Migration files use refinery naming: `V{n}__{description}.sql`.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -12,20 +12,21 @@ use swe_edge_egress_database_migration::{
 
 #[cfg(feature = "sqlite")]
 fn sqlite_url(path: &std::path::Path) -> String {
-    // sqlx parses sqlite URLs via `url::Url`; use forward slashes so a Windows
-    // path (with `\` and a drive letter) round-trips cleanly.
+    // refinery/deadpool-sqlite both require a file path (not URL) internally,
+    // but `DatabaseConfig.url` keeps the `sqlite://` scheme so the driver
+    // selector works. The datasource strips the prefix before opening.
     format!("sqlite:///{}", path.to_str().unwrap().replace('\\', "/"))
 }
 
 #[cfg(feature = "sqlite")]
 fn write_two_migrations(dir: &std::path::Path) {
     std::fs::write(
-        dir.join("0001_create_metrics.sql"),
+        dir.join("V1__create_metrics.sql"),
         "CREATE TABLE metrics (id INTEGER PRIMARY KEY, name TEXT NOT NULL);",
     )
     .unwrap();
     std::fs::write(
-        dir.join("0002_add_value.sql"),
+        dir.join("V2__add_value.sql"),
         "ALTER TABLE metrics ADD COLUMN value REAL NOT NULL DEFAULT 0.0;",
     )
     .unwrap();
@@ -64,16 +65,31 @@ async fn test_connect_and_migrate_returns_pool_with_migrated_schema() {
     let sqlite = pool.as_sqlite().expect("sqlite pool must be present");
 
     // The `value` column only exists if BOTH migrations applied in order.
-    sqlx::query("INSERT INTO metrics (name, value) VALUES (?1, ?2)")
-        .bind("cpu")
-        .bind(0.91_f64)
-        .execute(sqlite)
+    sqlite
+        .get()
         .await
+        .expect("get connection")
+        .interact(|c| {
+            c.execute(
+                "INSERT INTO metrics (name, value) VALUES (?1, ?2)",
+                rusqlite::params!["cpu", 0.91_f64],
+            )
+        })
+        .await
+        .expect("interact")
         .expect("insert into migrated table must succeed");
 
-    let name: String = sqlx::query_scalar("SELECT name FROM metrics WHERE id = 1")
-        .fetch_one(sqlite)
+    let name: String = sqlite
+        .get()
         .await
+        .expect("get connection")
+        .interact(|c| {
+            c.query_row("SELECT name FROM metrics WHERE id = 1", (), |row| {
+                row.get(0)
+            })
+        })
+        .await
+        .expect("interact")
         .expect("select from migrated table must succeed");
     assert_eq!(name, "cpu");
 
@@ -159,7 +175,7 @@ async fn test_run_with_absent_migrations_dir_returns_directory_not_found() {
     );
 }
 
-/// @covers: revert — the sqlx runner is forward-only.
+/// @covers: revert — the refinery runner is forward-only.
 #[cfg(feature = "sqlite")]
 #[tokio::test]
 async fn test_revert_returns_not_configured_forward_only() {
