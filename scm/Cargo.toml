@@ -1,13 +1,13 @@
 [package]
 name         = "swe-edge-egress-database-migration"
-version      = "0.2.0"
+version      = "0.3.0"
 edition      = "2021"
 license      = "MIT OR Apache-2.0"
 rust-version = "1.95"
 authors      = ["SWE Engineering Labs"]
 repository   = "https://github.com/sweengineeringlabs/edge"
-description  = "Database migration runner for swe-edge — MigrationRunner trait with refinery-backed implementations behind postgres/sqlite feature flags."
-keywords     = ["migration", "database", "refinery", "sea", "swe"]
+description  = "Database datasource + migration bootstrap for swe-edge — DatabaseConfig + connect_and_migrate returning a configured, migrated sqlx pool behind postgres/sqlite feature flags."
+keywords     = ["migration", "database", "sqlx", "sea", "swe"]
 categories   = ["database"]
 
 [package.metadata.struct-engine]
@@ -19,25 +19,27 @@ path = "main/src/lib.rs"
 
 [features]
 default  = []
-postgres = ["dep:tokio-postgres", "refinery/tokio-postgres"]
-sqlite   = ["dep:rusqlite",       "refinery/rusqlite"]
-# mysql omitted: mysql_async pulls in rsa 0.9.x (RUSTSEC-2023-0071, no fix available upstream)
+postgres = ["sqlx/postgres"]
+sqlite   = ["sqlx/sqlite"]
+# mysql omitted: kept out of scope until a consumer needs it (matches prior posture).
 
 [dependencies]
-refinery       = { version = "0.8", default-features = false }
-tokio-postgres = { version = "0.7", optional = true }
-rusqlite       = { version = "0.31", optional = true, features = ["bundled"] }
-thiserror      = "2"
-futures        = "0.3"
-serde          = { version = "1.0", features = ["derive"] }
-tokio          = { version = "1.0", features = ["rt", "rt-multi-thread"] }
+sqlx                   = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "migrate"] }
+thiserror              = "2"
+futures                = "0.3"
+serde                  = { version = "1.0", features = ["derive"] }
+tokio                  = { version = "1.0", features = ["rt", "rt-multi-thread"] }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.3.0" }
 
 [dev-dependencies]
-tokio          = { version = "1.0", features = ["macros", "rt-multi-thread"] }
-tempfile       = "3"
+tokio                  = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tempfile               = "3"
+toml                   = "0.8"
+# Mirrors how a consumer (e.g. justobserv) queries the returned DbPool to back
+# its edge_domain::Repository adapters — used to prove migrations + pool end-to-end.
+sqlx                   = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.3.0" }
-futures        = "0.3"
+futures                = "0.3"
 
 [lints.rust]
 unsafe_code = "deny"
@@ -47,8 +49,8 @@ unwrap_used = "deny"
 expect_used = "deny"
 
 [[test]]
-name = "migration_runner_int_test"
-path = "tests/migration_runner_int_test.rs"
+name = "migration_runner_trait_int_test"
+path = "tests/migration_runner_trait_int_test.rs"
 
 [[test]]
 name = "migration_int_test"
@@ -59,20 +61,12 @@ name = "migration_error_int_test"
 path = "tests/migration_error_int_test.rs"
 
 [[test]]
-name = "migration_runner_trait_int_test"
-path = "tests/migration_runner_trait_int_test.rs"
-
-[[test]]
-name = "refinery_migration_runner_int_test"
-path = "tests/refinery_migration_runner_int_test.rs"
+name = "migration_status_int_test"
+path = "tests/migration_status_int_test.rs"
 
 [[test]]
 name = "saf_int_test"
 path = "tests/saf_int_test.rs"
-
-[[test]]
-name = "migration_status_int_test"
-path = "tests/migration_status_int_test.rs"
 
 [[test]]
 name = "processor_int_test"
@@ -95,5 +89,17 @@ name = "egress_int_test"
 path = "tests/egress_int_test.rs"
 
 [[test]]
-name = "tokio_postgres_dep_int_test"
-path = "tests/tokio_postgres_dep_int_test.rs"
+name = "database_config_int_test"
+path = "tests/database_config_int_test.rs"
+
+[[test]]
+name = "connect_and_migrate_int_test"
+path = "tests/connect_and_migrate_int_test.rs"
+
+[[test]]
+name = "db_pool_int_test"
+path = "tests/db_pool_int_test.rs"
+
+[[test]]
+name = "postgres_datasource_int_test"
+path = "tests/postgres_datasource_int_test.rs"

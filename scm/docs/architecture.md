@@ -2,53 +2,47 @@
 
 ## Sequence
 
-> The runtime creates a `MigrationRunner` from a connection URL at startup; the runner applies pending SQL migrations in version order.
+> At startup the composition root calls `connect_and_migrate(&DatabaseConfig)`:
+> the crate opens a tuned `sqlx` pool, applies pending migrations in version
+> order, and returns the ready pool. The consumer then queries through it.
 
 ```mermaid
 sequenceDiagram
-    participant Runtime
+    participant Consumer as Consumer (composition root)
     participant MigrationSvc
-    participant MigrationRunner
+    participant DbPool as sqlx pool (spi)
     participant Database
 
-    Runtime->>MigrationSvc: migration_runner(db_url, migrations_dir)
-    MigrationSvc->>MigrationSvc: detect DB type from URL scheme (sqlite:// / postgres://)
-    MigrationSvc-->>Runtime: Box<dyn MigrationRunner>
+    Consumer->>MigrationSvc: connect_and_migrate(&DatabaseConfig)
+    MigrationSvc->>MigrationSvc: select driver (DriverKind) + apply pool tuning
+    MigrationSvc->>DbPool: open pool (max_connections, timeouts)
+    DbPool->>Database: connect
+    MigrationSvc->>Database: apply pending <version>_<desc>.sql in order (idempotent)
+    Database-->>MigrationSvc: _sqlx_migrations updated
+    MigrationSvc-->>Consumer: DbPool (ready, migrated)
 
-    Runtime->>MigrationRunner: status()
-    MigrationRunner->>Database: SELECT applied migrations
-    Database-->>MigrationRunner: Vec<MigrationStatus>
-    MigrationRunner-->>Runtime: Vec<MigrationStatus>
-
-    Runtime->>MigrationRunner: run()
-    MigrationRunner->>Database: apply each pending .sql in version order
-    Database-->>MigrationRunner: Ok per migration
-    MigrationRunner-->>Runtime: Result<Vec<Migration>, MigrationError>
-
-    opt rollback
-        Runtime->>MigrationRunner: revert()
-        MigrationRunner->>Database: undo last migration
-        MigrationRunner-->>Runtime: Result<Migration, MigrationError>
-    end
+    Consumer->>DbPool: as_sqlite()/as_postgres() → concrete sqlx pool
+    Consumer->>Database: query (consumer's edge_domain::Repository adapter)
 ```
 
 ## Data Flow
 
-> A `(db_url, migrations_dir)` pair drives schema evolution; the output is the list of migrations applied in this run.
+> A `DatabaseConfig` drives pool construction and schema evolution; the output is
+> a ready `DbPool` the consumer owns.
 
 ```mermaid
 flowchart LR
-    A["db_url: &str\n(sqlite:///./dev.db\npostgres://host/db)"] --> B["MigrationSvc\n::migration_runner"]
-    C["migrations_dir: &str\n(./migrations/*.sql\nversioned by timestamp)"] --> B
+    A["DatabaseConfig\n(driver, url,\nmax_connections, timeouts,\nmigrations_dir)"] --> B["MigrationSvc\n::connect_and_migrate"]
 
-    B -->|detect scheme| D{DB type}
-    D -->|sqlite| E["SQLite\nMigrationRunner"]
-    D -->|postgres| F["Postgres\nMigrationRunner"]
+    B -->|select driver| D{DriverKind}
+    D -->|sqlite| E["sqlx SqlitePool\n(spi/sqlx)"]
+    D -->|postgres| F["sqlx PgPool\n(spi/sqlx)"]
 
-    E --> G["status() → Vec<MigrationStatus>"]
+    E --> G["run migrations\n(sqlx Migrator, in order)"]
     F --> G
 
-    G --> H["run()\napply pending in order"]
-    H -->|Ok| I["Vec<Migration>\napplied list"]
-    H -->|Err| J["MigrationError\n::Connection\n::NotConfigured\n::SqlError"]
+    G -->|Ok| I["DbPool\n(ready, migrated)"]
+    G -->|Err| J["MigrationError\n::Connection\n::MigrationsDirectoryNotFound\n::Apply\n::NotConfigured"]
+
+    I --> K["consumer queries via\nas_sqlite()/as_postgres()"]
 ```

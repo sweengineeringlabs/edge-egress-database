@@ -1,7 +1,10 @@
-//! Extension hooks for downstream consumers.
+//! Extension hooks and external-library implementations for downstream consumers.
 //!
-//! The presence of `spi/` signals that `saf/` intentionally returns
-//! `impl MigrationRunner` — consumers may substitute their own implementations
-//! by implementing the [`MigrationRunner`] trait from `api/traits/`.
+//! `spi/egress` is the SEA extension anchor signalling that `saf/` returns
+//! `impl MigrationRunner`. `spi/sqlx` holds the `sqlx`-backed datasource
+//! (external library, surfaced via `saf/` per ADR-008).
 
 pub(crate) mod egress;
+
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
+pub(crate) mod sqlx;

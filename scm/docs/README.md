@@ -2,23 +2,36 @@
 
 ## WHAT
 
-Database schema migration runner for swe-edge services — runtime-agnostic migration execution with
-versioning, status tracking, and optional rollback via the `refinery` backend.
+Database datasource + schema-migration bootstrap for swe-edge services. It owns
+the `[database]` config contract, opens a tuned `sqlx` connection pool, applies
+pending migrations idempotently, and returns a ready pool the consumer queries
+through. Forward-only migrations; no rollback.
 
 Key capabilities:
 
-- **`MigrationRunner`** — core trait: `run()`, `revert()`, `status() → Vec<MigrationStatus>`; dyn-safe; driver-agnostic
-- **`Migration`** — VO with `version`, `description`, `applied_at`; constructors: `pending(version, desc)`, `applied(version, desc, timestamp)`
-- **`MigrationStatus`** — per-migration applied/pending indicator for deployment validation
-- **`MigrationError`** — enum: `NoMigrationToRevert`, `NotConfigured`, connection errors
-- **`ApplicationConfigBuilder`** — fluent config assembly for database connection and migration paths
-- Feature-flagged backends: `postgres`, `sqlite` (via `refinery`; disabled by default)
+- **`DatabaseConfig`** — backend-owned `[database]` `OptionalSection` (ADR-006):
+  `driver`, `url`, pool tuning (`max_connections`, `acquire_timeout_secs`,
+  `idle_timeout_secs`), `migrations_dir`; `#[serde(deny_unknown_fields)]`
+- **`MigrationSvc::connect_and_migrate(&cfg)`** — opens the pool, runs pending
+  migrations, returns a ready **`DbPool`**
+- **`MigrationSvc::connect(&cfg)`** — pool only (no migrations)
+- **`DbPool`** — concrete `sqlx` pool (`as_sqlite()` / `as_postgres()`), an `spi/`
+  type surfaced via `saf/` (ADR-008); `api/` names no driver library
+- **`MigrationRunner`** — neutral port: `run()`, `revert()`, `status() →
+  Vec<MigrationStatus>`; dyn-safe. `noop_migration_runner()` is always available
+- **`Migration` / `MigrationStatus`** — value objects for applied/pending state
+- **`MigrationError`** — `Connection`, `Apply`, `MigrationsDirectoryNotFound`,
+  `NotConfigured`, `NoMigrationToRevert`, `Internal`
+- Feature-flagged backends: `postgres`, `sqlite` (via `sqlx`; disabled by default)
+
+Migration files use `sqlx` naming: `<version>_<description>.sql`.
 
 ## WHY
 
 | Problem | Solution |
 |---------|----------|
-| Schema migrations coupled to a specific database driver | `MigrationRunner` trait isolates driver specifics; the same application code targets postgres or sqlite via feature flags |
-| Migration status unknown at deployment time | `status()` returns a typed `Vec<MigrationStatus>` — applied vs. pending is inspectable before any request is served |
-| Rollback capability absent or ad-hoc | `revert()` on the trait; implementations that don't support rollback return `MigrationError::NotConfigured` explicitly |
-| Diamond dep conflicts when migration types change | One crate, one tag — all consumers pin the same version; kgraph detects conflicts pre-commit |
+| Every consumer hand-builds (and mis-tunes) its own pool | One blessed `connect_and_migrate` returns a sizing/timeout-correct, already-migrated pool |
+| Config shape duplicated and version-skewed across apps | Backend owns `DatabaseConfig: OptionalSection` — one canonical `[database]` contract (ADR-006) |
+| Driver library leaking into the contract surface | Concrete `sqlx` pool confined to `spi/`, surfaced via `saf/`; `api/` is technology-neutral (ADR-008) |
+| Persistence coupling the migration crate to domain | No `edge-domain` dependency; DB-backed `Repository` adapters live in the consumer (ADR-001) |
+| Migration status unknown at deploy time | `status()` returns a typed `Vec<MigrationStatus>` — applied vs. pending before serving traffic |

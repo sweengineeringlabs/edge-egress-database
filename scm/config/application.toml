@@ -1,6 +1,13 @@
 # swe-edge-egress-database-migration — default configuration.
 #
-# Read by consumers via swe_edge_config::load_section("database.migration").
-
-# [database.migration]
-# migrations_dir = "./migrations"
+# The `[database]` section is owned by this crate (DatabaseConfig: OptionalSection,
+# ADR-006). Presence of the section enables the datasource; `enabled = false`
+# disables a section that is otherwise present.
+#
+# [database]
+# driver               = "sqlite"            # "sqlite" | "postgres"
+# url                  = "sqlite:///var/lib/obsrv/data.db"
+# max_connections      = 5                   # default 5
+# acquire_timeout_secs = 30                  # default 30
+# idle_timeout_secs    = 300                 # optional; omit to keep idle conns open
+# migrations_dir       = "./migrations"      # required by connect_and_migrate

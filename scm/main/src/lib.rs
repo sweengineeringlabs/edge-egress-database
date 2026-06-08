@@ -1,17 +1,19 @@
-//! `swe-edge-egress-database-migration` — database migration runner.
+//! `swe-edge-egress-database-migration` — database datasource + migration bootstrap.
 //!
-//! Provides the [`MigrationSvc::noop_migration_runner`] and (with `sqlite`/`postgres`
-//! feature flags) [`MigrationSvc::migration_runner`] factories.  Each database
-//! driver is an independent optional feature — enabling `postgres` never pulls
-//! in SQLite code and vice versa.
+//! A domain-free infrastructure leaf: it owns the `[database]` config contract
+//! ([`DatabaseConfig`]), opens a configured `sqlx` connection pool, applies
+//! pending schema migrations, and hands back a ready [`DbPool`] the consumer
+//! queries through. The DB-backed `edge_domain::Repository` adapters live in the
+//! consumer, not here (see ADR-001).
 //!
 //! | Feature    | Driver     | URL scheme       |
 //! |------------|------------|------------------|
-//! _(none)_    | —          | —                |
+//! _(none)_    | —          | — (noop only)    |
 //! `postgres`  | PostgreSQL | `postgres://…`   |
-//! `sqlite`    | SQLite     | `sqlite:///…`    |
+//! `sqlite`    | SQLite     | `sqlite://…`     |
 //!
-//! Migration files must follow refinery naming: `V{n}__{description}.sql`
+//! Migration files follow `sqlx` naming: `<version>_<description>.sql`
+//! (e.g. `0001_create_metrics.sql`).
 //!
 //! # Quick start — no-op (always available)
 //!
@@ -26,16 +28,26 @@
 //! # }
 //! ```
 //!
-//! # Quick start — SQLite (with `sqlite` feature)
+//! # Quick start — connect + migrate (with the `sqlite` feature)
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "sqlite")]
 //! # async fn example() -> Result<(), swe_edge_egress_database_migration::MigrationError> {
-//! use swe_edge_egress_database_migration::{MigrationRunner, MigrationSvc};
+//! use swe_edge_egress_database_migration::{DatabaseConfig, DriverKind, MigrationSvc};
 //!
-//! let runner = MigrationSvc::migration_runner("sqlite:///./dev.db", "./migrations").await?;
-//! let applied = runner.run().await?;
-//! println!("applied {} migration(s)", applied.len());
+//! let cfg = DatabaseConfig {
+//!     driver: DriverKind::Sqlite,
+//!     url: "sqlite:///./obsrv.db".into(),
+//!     max_connections: 5,
+//!     acquire_timeout_secs: 30,
+//!     idle_timeout_secs: None,
+//!     migrations_dir: Some("./migrations".into()),
+//! };
+//!
+//! let pool = MigrationSvc::connect_and_migrate(&cfg).await?;
+//! // `pool.as_sqlite()` yields the concrete sqlx pool for the consumer's
+//! // Repository adapters.
+//! # let _ = pool;
 //! # Ok(())
 //! # }
 //! ```
