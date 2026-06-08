@@ -6,9 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.3.0] — 2026-06-08
+## [0.2.1] — 2026-06-08
 
-Datasource + migration bootstrap on `sqlx` (issue #3, ADR-001). **Breaking.**
+Datasource + migration bootstrap on `sqlx` (issue #3, ADR-001). API-breaking, but
+released as a patch bump to match this repo's auto-tag scheme (the crate is `0.x`
+and `auto-tag` patch-increments the latest tag on merge to `main`).
 
 ### Added
 - `DatabaseConfig` — backend-owned `[database]` `OptionalSection` (ADR-006):
