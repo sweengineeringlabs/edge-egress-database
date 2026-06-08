@@ -1,4 +1,4 @@
-# ADR-001: egress-database Stays Domain-Free — Repository Impls Live in the Consumer
+# ADR-001: egress-database is a Domain-Free `sqlx` Datasource + Migration Bootstrap
 
 **Status:** Accepted
 **Date:** 2026-06-08
@@ -11,135 +11,140 @@
 ## Context
 
 `justobserv` needs durable storage for its four observability pillars (metrics,
-logs, traces, monitoring snapshots). Today those backends use
+logs, traces, monitoring snapshots). Those backends currently use
 `edge_domain::InMemoryRepository`, so data is lost on restart. Issue #3 asks this
-crate (`swe-edge-egress-database-migration`) to supply the persistence plumbing.
+crate to supply the persistence plumbing.
 
-The migration engine already exists here and is independent of every other
-workspace: `MigrationRunner` + `RefineryMigrationRunner` (postgres + sqlite),
-`MigrationSvc`, `MigrationError`, `Migration`, `MigrationStatus`.
+Two things had to be decided before implementing:
+
+1. **The domain boundary.** Should this crate depend on `edge-domain` (the issue
+   proposed integrating with its `HandlerError`), and should it ship the
+   DB-backed `Repository` implementations?
+2. **What it returns.** `justobserv` needs a connection pool to query through.
+   What is the type and ownership of that pool, under ADR-008's rule that `api/`
+   must name no external technology?
 
 `edge-domain` owns the persistence **contract** — `Repository<T, Id>` /
-`QueryableRepository<T, Id>` plus an `InMemoryRepository`. Its own trait doc
-states: *"Implementations live in infrastructure crates — never in
-`edge-domain`. `edge-domain` owns only this contract."*
+`QueryableRepository<T, Id>` — and its trait doc states: *"Implementations live in
+infrastructure crates — never in `edge-domain`."* `swe-edge-message-broker` is
+the reference ADR-006 implementation and takes **no** `edge-domain` dependency;
+it owns its config (`MessageBrokerConfig: OptionalSection`), its port trait, and
+hides its backends behind `dyn MessageBroker`.
 
-Issue #3 originally proposed this crate *"integrate with `edge-domain` —
-`HandlerError` variants for migration failures,"* implying a new dependency edge
-**egress-database → edge-domain**. This ADR decides the boundary. It does **not**
-re-decide config ownership or technology neutrality — those are already settled
-monorepo-wide by ADR-006 and ADR-008 respectively; this ADR applies them.
+### The polymorphic-T constraint
 
-### Precedent: swe-edge-message-broker
+message-broker can fully hide its backend behind one trait because its payload
+(`Message`) is **monomorphic** — `publish`/`subscribe` is the complete useful
+surface. Data access is **polymorphic**: the useful abstraction is
+`Repository<T, Id>`, generic over the entity, and it is owned by `edge-domain`.
+A database pool's only value to a repository is running **typed queries**, which
+is inherently SQL/driver-shaped.
 
-`swe-edge-message-broker` is the reference implementation of ADR-006 and is
-structurally identical to this crate. It establishes the pattern we follow:
-
-- **No `edge-domain` dependency.** Its only non-std deps are `configbuilder`,
-  `serde`, `futures`, `thiserror`, `tracing`.
-- **Owns its config** — `MessageBrokerConfig: OptionalSection` (`[message_broker]`,
-  a `BackendKind` enum, `validate_enabled`, `metadata`, `deny_unknown_fields`).
-- **Owns its port trait** — `MessageBroker`, with a `noop_broker()` default and an
-  `spi/` extension point; production backends (nats/kafka) are constructed
-  elsewhere and injected.
-- **Leaks no raw handle.** Consumers get `Box<dyn MessageBroker>`, never a raw
-  socket or client.
-
-The one place message-broker does not map 1:1: its payload (`Message`) is
-monomorphic, so a single trait fully abstracts it. Data access is *polymorphic*
-(`Repository<T, Id>` is generic over the entity), and that abstraction is owned
-by `edge-domain` — which is exactly why the concrete impl cannot live here.
+This rules out a "technology-neutral pool handle" in `api/`: such a handle is
+either opaque (the consumer cannot query through it without recovering the
+concrete type — useless) or it grows into a full neutral query API (re-inventing
+`sqlx`'s `Executor` and papering over Postgres/SQLite dialect differences — an
+ORM, not a migration crate). There is no useful neutral abstraction this crate
+can place *between* a raw pool and domain's generic `Repository`.
 
 ---
 
 ## Decision
 
-**`swe-edge-egress-database-migration` does NOT depend on `edge-domain`.** It
-remains a standalone infrastructure leaf. Its scope for issue #3:
+### 1. No `edge-domain` dependency; Repository impls live in the consumer
 
-1. **`DatabaseConfig: OptionalSection`** — backend-owned `[database]` section
-   (driver + url), per **ADR-006**. Mirrors `MessageBrokerConfig`.
-2. **A `saf/` `from_config` factory** that opens a connection pool and runs
-   pending migrations idempotently, returning a **technology-neutral** pool
-   handle.
-3. The existing migration run (already implemented).
+This crate does **not** depend on `edge-domain`. It does **not** ship
+`impl Repository<T, Id>` for any entity, and does **not** map its errors into
+`edge_domain::HandlerError`. Those belong to the consumer (`justobserv`), the
+single place that depends on both `edge-domain` (the trait) and this crate (the
+pool). The dependency direction is consumer → (domain, db); never db → domain.
 
-The concrete `impl Repository<T, Id>` (the DB-backed adapter) and any
-`MigrationError → HandlerError` mapping are **out of scope for this crate**. They
-belong to the consumer (`justobserv`), the single place that depends on both
-`edge-domain` (the trait) and this crate (the pool handle).
+### 2. This crate IS the datasource: `sqlx` pool + migrations, concrete pool returned
 
-### Applying ADR-008 to the pool handle
+This crate adopts **`sqlx`** as its single SQL backend, replacing
+`refinery` + `tokio-postgres` + `rusqlite`. `sqlx` provides pooling **and**
+migrations in one maintained library, and issue #3's own feature table already
+specifies `sqlx` + SQLite / `sqlx` + Postgres — the prior `refinery` stack was
+the divergence.
 
-Per ADR-008, `api/` may name no external technology — `Sqlx*` is explicitly
-forbidden — and *"swapping the backing library must not change a single file
-under `api/`."* Therefore:
+The public surface returns a **concrete, configured, migrated pool**:
 
-- The pool/connection handle is a **neutral type/trait in `api/`** (no `Sqlx`,
-  `Deadpool`, `Pg`, etc. in its name or signature).
-- The concrete pool implementation (`sqlx`, `deadpool`, …) lives in
-  **`spi/{technology}/`** and is exported only through `saf/`.
-- The chosen pool library is an `spi/` implementation detail, not part of the
-  public contract. This resolves "sqlx vs deadpool" as a non-architectural,
-  swappable choice.
+```rust
+// saf/
+pub async fn connect_and_migrate(cfg: &DatabaseConfig)
+    -> Result<DbPool, MigrationError>;
+// builds a pool with the configured sizing/timeouts → runs pending
+// migrations → returns a READY pool the consumer queries through.
+```
 
-Returning a bare `sqlx::Pool` from a `saf/` function would violate ADR-008 and is
-rejected.
+`DbPool` is a concrete `sqlx`-backed type defined in `spi/sqlx/` and exported via
+`saf/`. This is **ADR-008-compliant**: `api/` stays technology-neutral (it holds
+the `MigrationRunner` / `MigrationStatus` ports and the neutral `MigrationError`,
+none naming `sqlx`); the external-library type lives in `spi/` and is surfaced
+through `saf/`, exactly as ADR-008 prescribes for `spi` implementations (the same
+way ingress surfaces `TonicGrpcServer`). What ADR-008 forbids — a `Sqlx*` name in
+`api/` — is not done.
+
+A single blessed constructor is deliberate: a correct production pool needs
+sizing, acquire/idle timeouts, TLS, and migrations-applied-before-first-query.
+Centralising that here makes the correct path the easy path and prevents
+per-consumer configuration drift.
+
+### 3. Config is backend-owned (`DatabaseConfig: OptionalSection`) — ADR-006
+
+This crate owns the `[database]` TOML contract as `DatabaseConfig: OptionalSection`
+(canonical `section_name() = "database"`, a `DriverKind` enum, pool-tuning fields,
+`validate_enabled`, `metadata`, `#[serde(deny_unknown_fields)]`), mirroring
+`MessageBrokerConfig`. This completes the ADR-006 Phase-2 migration, replacing the
+current `database_url: impl Into<String>` shape.
 
 ---
 
 ## Architecture
 
 ```
-            depends on                          depends on
- justobserv ──────────▶ edge-domain    justobserv ──────────▶ egress-database
- (adapter /             (Repository<T,Id>        (DatabaseConfig + neutral
-  composition root)      trait)                   pool handle + migrations)
+egress-database  (domain-free sqlx datasource + migration bootstrap)
+  api/   MigrationRunner / MigrationStatus / MigrationError    ← neutral ports (ADR-008)
+  api/   DatabaseConfig: OptionalSection                       ← backend-owned (ADR-006)
+         ([database]: driver, url, max_connections, timeouts)
+  spi/sqlx/  DbPool + sqlx migrator                            ← external lib confined here
+  saf/   connect_and_migrate(&DatabaseConfig) -> Result<DbPool, MigrationError>
+
+justobserv  (composition root)
+  depends on edge-domain (Repository<T,Id>) + egress-database (DbPool, DatabaseConfig)
+
+  let pool = connect_and_migrate(&cfg).await?;          // ready, migrated pool
+  impl Repository<MetricRecord, MetricId> for PgMetricRepo { /* uses pool (sqlx) */ }
 ```
 
 The Domain contract is never passed through the DB crate. The consumer holds the
-neutral pool handle (from this crate) and the trait (from domain) and marries
-them in its own `impl Repository<T, Id>`:
-
-```rust
-use edge_domain::Repository;                              // contract (domain)
-use swe_edge_egress_database_migration::{DatabaseConfig, DatabasePool}; // neutral handle (this crate)
-
-struct PostgresMetricRepository { pool: DatabasePool }
-impl Repository<MetricRecord, MetricId> for PostgresMetricRepository { /* uses self.pool */ }
-
-// from_config opens the pool and runs migrations; returns a neutral DatabasePool
-let pool = DatabaseSvc::from_config(cfg).await?;
-let repo = PostgresMetricRepository { pool };
-```
-
-`DatabasePool` here denotes the neutral `api/` handle; its `sqlx`/`deadpool`
-backing lives in `spi/` and never appears in a public signature.
+pool (from this crate) and the trait (from domain) and marries them in its own
+`impl Repository<T, Id>`, using `sqlx` directly for the per-entity SQL.
 
 ---
 
 ## Rationale
 
-1. **This crate cannot implement justobserv's repositories.** `Repository<T, Id>`
-   is generic over the entity; a DB-backed impl must map a concrete entity
-   (`MetricRecord`, `LogRecord`, …) to columns. Those entities are owned by
-   `justobserv`. A generic impl over arbitrary `T` is impractical without
-   per-entity SQL, so the adapters belong with the entities.
+1. **The pool must be exposed, so expose it well.** Because the only useful data
+   abstraction (`Repository`) is domain-owned and generic, this crate cannot offer
+   a neutral query layer — it must return the real pool. Given that, returning a
+   *correctly configured, already-migrated* pool is far more production-grade than
+   shipping a config and leaving every consumer to build (and mis-build) its own.
 
-2. **Error bridging is a consumer concern.** This crate exposes a complete
-   `MigrationError`. Converting it into `edge_domain::HandlerError` is the
-   caller's boundary job; a leaf reaching up into a consumer's error enum is
-   backwards coupling. (The sole reason issue #3 cited for the domain dep.)
+2. **`sqlx` unifies the stack and matches intent.** It is the ecosystem-standard
+   async pooled SQL toolkit with built-in migrations; one library covers pool +
+   migrate + both drivers. It is also what issue #3 specified.
 
-3. **Neither deliverable needs a domain symbol.** `DatabaseConfig` needs only
-   `configbuilder`; the pool handle needs only the pool library, hidden in
-   `spi/`. Zero `edge-domain` types are involved.
+3. **Domain stays out (Rationale unchanged from the boundary decision).** The
+   crate consumes no domain type; the only cited reason for the dep
+   (`HandlerError` conversion) is a consumer-side boundary concern. Taking the dep
+   would force every migration consumer to transitively pull in domain's contracts
+   for no benefit — and message-broker, the precedent, takes no such dep.
 
-4. **Cohesion and blast radius.** Taking the dep would force every migration
-   consumer to transitively pull in domain's `Handler` / `Repository` /
-   `HandlerError` contracts and couple migration releases to domain's cadence —
-   for an error-conversion convenience. The precedent (message-broker) takes no
-   such dep.
+4. **ADR-008 honoured honestly.** `api/` names no `sqlx`; the concrete pool is an
+   `spi/` type surfaced via `saf/`. Swapping `sqlx` later changes `spi/` + the
+   `saf/` return type (a deliberate, semver-governed public choice) but not the
+   `api/` ports.
 
 ---
 
@@ -147,37 +152,51 @@ backing lives in `spi/` and never appears in a public signature.
 
 **Positive**
 
-- Stays a reusable leaf consumable for migrations alone; dependency direction is
-  consumer → (domain, db), never db → domain.
-- Faithful to ADR-006 (backend-owned config), ADR-008 (api neutrality), and
-  domain's own rule that implementations live in infra crates.
-- "sqlx vs deadpool" is demoted to an `spi/` detail, not a public contract.
+- One blessed, correctly-tuned, migrated pool; no per-consumer pool drift.
+- Single SQL library (`sqlx`) for pool + migrations + both drivers.
+- No db → domain coupling; faithful to ADR-006, ADR-008, and domain's own rule.
+- `api/` stays swappable; the backing library is an `spi/` detail.
 
 **Negative / accepted trade-offs**
 
-- `justobserv` (not this crate) owns the `Repository` adapters and any
-  `MigrationError → HandlerError` mapping — reflected in justobserv's scope
-  (`sweengineeringlabs/justobserv#20`).
-- This crate must complete its ADR-006 Phase-2 migration: replace the current
-  `database_url: impl Into<String>` shape with `DatabaseConfig: OptionalSection`.
-- A neutral `api/` pool handle + `spi/` impl is more structure than returning a
-  raw pool — but it is what ADR-008 requires.
+- **Rewrite cost.** Replacing `refinery`/`tokio-postgres`/`rusqlite` with `sqlx`
+  rewrites the runner and its integration tests against `sqlx`'s migrator.
+- **Crate identity broadens** from "migration runner" to "database datasource +
+  migration bootstrap." A future rename (dropping the `-migration` suffix) should
+  be considered; deferred to avoid churning the published tag mid-change.
+- **Consumer is `sqlx`-coupled** by design — it queries through a concrete `sqlx`
+  pool. This is intended (it is *choosing* the datasource by depending on this
+  crate) and is confined to the consumer, not `api/`.
+- `justobserv` owns the `Repository` adapters and any `MigrationError →
+  HandlerError` mapping (tracked in `sweengineeringlabs/justobserv#20`).
 
 ---
 
 ## Alternatives Considered
 
 1. **egress-database → edge-domain (issue #3's original framing).** Rejected: the
-   only cited driver (`HandlerError` variants) is a consumer-side boundary
-   concern, and the crate would still consume no domain type — pure coupling for
-   no benefit (Rationale 1–4).
+   only cited driver (`HandlerError` variants) is a consumer boundary concern, and
+   the crate consumes no domain type — pure coupling for no benefit.
 
-2. **Return a bare `sqlx::Pool` from `saf/`.** Rejected: violates ADR-008
-   (`Sqlx*` forbidden in `api/`; backing library must be swappable without
-   touching `api/`).
+2. **Technology-neutral pool handle in `api/`.** Rejected: a database pool's value
+   is typed queries, which are inherently technology-shaped; a neutral handle is
+   either opaque-and-useless or an ORM re-implementation. The polymorphic-`T`
+   nature of `Repository` means there is no useful neutral abstraction to place
+   between the pool and domain's contract.
 
-3. **Own a data-access trait here instead of using domain's `Repository`**
-   (the literal message-broker pattern). Rejected: `Repository<T, Id>` already
-   exists in domain and is the canonical contract; duplicating a parallel
-   data-access port here would fork the abstraction and force consumers to choose
-   between two equivalent traits.
+3. **Migration-only leaf (config + migrations, no pool).** Rejected: it pushes
+   pool construction onto every consumer, inviting timeout/TLS/sizing/ordering
+   drift, and contradicts issue #3's `sqlx` + pool intent. Cheaper, but fails the
+   operational-consistency bar.
+
+4. **Own a parallel data-access trait here instead of using domain's
+   `Repository`** (the literal message-broker pattern). Rejected: `Repository<T,
+   Id>` already exists in domain as the canonical contract; a parallel port would
+   fork the abstraction and force consumers to choose between two equivalent
+   traits.
+
+5. **Return a bare `sqlx::Pool` from `saf/` with no wrapper.** Acceptable under
+   ADR-008 (it is an `spi`/`saf` concrete type, not an `api/` name), but a thin
+   `DbPool` newtype in `spi/sqlx/` is preferred so pool construction, tuning, and
+   the migrate step have one owner and the public type is stable across internal
+   `sqlx` changes.
