@@ -9,7 +9,7 @@ use crate::api::error::MigrationError;
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
 use crate::api::types::DatabaseConfig;
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
-use crate::spi::deadpool::DbPool;
+use crate::api::types::DbPool;
 
 impl MigrationSvc {
     /// Return a config builder pre-seeded with this crate's package name and version.

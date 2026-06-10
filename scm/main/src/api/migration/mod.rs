@@ -1,10 +1,6 @@
-//! Migration value objects.
+//! Migration value objects — domain-grouped layout per SEA Rule 196.
 
-// SEA domain-grouped layout: the `migration` type lives in api/migration/migration.rs
-// (file stem matches the type per rule 161), which clippy reads as module inception.
-#[allow(clippy::module_inception)]
-pub mod migration;
-pub mod migration_status;
+pub(crate) mod types;
 
-pub use migration::Migration;
-pub use migration_status::MigrationStatus;
+pub use types::Migration;
+pub use types::MigrationStatus;

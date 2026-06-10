@@ -1,8 +1,7 @@
 //! [`DbPool`] — deadpool-backed connection pool returned by the datasource.
 //!
-//! This is an `spi/` type (it names the `deadpool` technology) surfaced to
-//! consumers through `saf/`, per ADR-008. The neutral `api/` surface never
-//! references it. Migrations are run by `core::refinery` on a fresh connection;
+//! This is an `api/types/` value object surfaced to consumers through `saf/`,
+//! per ADR-008. Migrations are run by `core::refinery` on a fresh connection;
 //! this pool serves post-migration consumer queries only.
 
 /// A ready, configured connection pool returned by
