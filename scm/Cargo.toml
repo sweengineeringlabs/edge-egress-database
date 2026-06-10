@@ -32,11 +32,11 @@ deadpool-sqlite   = { version = ">=0.5", optional = true }
 thiserror              = "2"
 futures                = "0.3"
 serde                  = { version = "1.0", features = ["derive"] }
-tokio                  = { version = "1.0", features = ["rt", "rt-multi-thread"] }
+tokio                  = { version = "1.52", features = ["rt", "rt-multi-thread"] }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.3.0" }
 
 [dev-dependencies]
-tokio                  = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio                  = { version = "1.52", features = ["macros", "rt-multi-thread"] }
 tempfile               = "3"
 toml                   = "0.8"
 rusqlite               = { version = "0.31", features = ["bundled"] }
@@ -51,58 +51,3 @@ unsafe_code = "deny"
 unwrap_used = "deny"
 expect_used = "deny"
 
-[[test]]
-name = "migration_runner_trait_int_test"
-path = "tests/migration_runner_trait_int_test.rs"
-
-[[test]]
-name = "migration_int_test"
-path = "tests/migration_int_test.rs"
-
-[[test]]
-name = "migration_error_int_test"
-path = "tests/migration_error_int_test.rs"
-
-[[test]]
-name = "migration_status_int_test"
-path = "tests/migration_status_int_test.rs"
-
-[[test]]
-name = "saf_int_test"
-path = "tests/saf_int_test.rs"
-
-[[test]]
-name = "processor_int_test"
-path = "tests/processor_int_test.rs"
-
-[[test]]
-name = "validator_int_test"
-path = "tests/validator_int_test.rs"
-
-[[test]]
-name = "application_config_builder_int_test"
-path = "tests/application_config_builder_int_test.rs"
-
-[[test]]
-name = "migration_svc_int_test"
-path = "tests/migration_svc_int_test.rs"
-
-[[test]]
-name = "egress_int_test"
-path = "tests/egress_int_test.rs"
-
-[[test]]
-name = "database_config_int_test"
-path = "tests/database_config_int_test.rs"
-
-[[test]]
-name = "connect_and_migrate_int_test"
-path = "tests/connect_and_migrate_int_test.rs"
-
-[[test]]
-name = "db_pool_int_test"
-path = "tests/db_pool_int_test.rs"
-
-[[test]]
-name = "postgres_datasource_int_test"
-path = "tests/postgres_datasource_int_test.rs"
