@@ -3,21 +3,21 @@
 use crate::api::traits::MigrationRunner;
 use crate::api::types::MigrationSvc;
 use crate::core::noop::NoopMigrationRunner;
+use configbuilder::{ConfigBuilder, ConfigLoaderFactory};
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
 use crate::api::error::MigrationError;
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
 use crate::api::types::DatabaseConfig;
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
-use crate::spi::deadpool::DbPool;
+use crate::api::types::DbPool;
 
 impl MigrationSvc {
     /// Return a config builder pre-seeded with this crate's package name and version.
-    pub fn create_config_builder() -> swe_edge_configbuilder::ConfigBuilderImpl {
-        let mut b = swe_edge_configbuilder::ConfigBuilderImpl::new();
-        b = b.with_name(env!("CARGO_PKG_NAME"));
-        b = b.with_version(env!("CARGO_PKG_VERSION"));
-        b
+    pub fn create_config_builder() -> configbuilder::ConfigBuilderImpl {
+        ConfigLoaderFactory::create_config_builder()
+            .with_name(env!("CARGO_PKG_NAME"))
+            .with_version(env!("CARGO_PKG_VERSION"))
     }
 
     /// Returns a no-op [`MigrationRunner`] that always succeeds without touching

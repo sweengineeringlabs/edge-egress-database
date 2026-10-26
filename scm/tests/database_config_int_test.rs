@@ -2,7 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use swe_edge_configbuilder::OptionalSection;
+use configbuilder::OptionalSection;
 use swe_edge_egress_database_migration::{DatabaseConfig, DriverKind};
 
 /// @covers: OptionalSection::section_name — canonical `[database]` key.
