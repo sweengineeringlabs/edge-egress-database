@@ -10,4 +10,4 @@ pub use crate::api::types::DriverKind;
 pub use crate::api::types::MigrationSvc;
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
-pub use crate::spi::deadpool::DbPool;
+pub use crate::api::types::DbPool;
