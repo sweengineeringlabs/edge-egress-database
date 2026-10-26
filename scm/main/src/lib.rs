@@ -3,7 +3,7 @@
 //! A domain-free infrastructure leaf: it owns the `[database]` config contract
 //! ([`DatabaseConfig`]), runs pending schema migrations via **refinery**
 //! (RUSTSEC-2023-0071-clean; no rsa dependency), and returns a ready
-//! **deadpool** [`DbPool`] the consumer queries through. The DB-backed
+//! **deadpool** `DbPool` the consumer queries through. The DB-backed
 //! `edge_domain::Repository` adapters live in the consumer, not here (ADR-001).
 //!
 //! | Feature    | Driver     | URL scheme     |
