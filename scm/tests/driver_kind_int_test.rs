@@ -25,24 +25,16 @@ fn test_driver_kind_copy_and_equality() {
 
 /// @covers: DriverKind — deserialization from snake_case TOML strings
 #[test]
-fn test_driver_kind_deserializes_from_snake_case() {
-    let sqlite: DriverKind =
-        toml::from_str::<toml::Value>("value = \"sqlite\"")
-            .unwrap()
-            .get("value")
-            .unwrap()
-            .clone()
-            .try_into()
-            .unwrap();
-    assert_eq!(sqlite, DriverKind::Sqlite);
+fn test_driver_kind_deserializes_from_snake_case() -> Result<(), toml::de::Error> {
+    #[derive(serde::Deserialize)]
+    struct DriverConfig {
+        value: DriverKind,
+    }
 
-    let postgres: DriverKind =
-        toml::from_str::<toml::Value>("value = \"postgres\"")
-            .unwrap()
-            .get("value")
-            .unwrap()
-            .clone()
-            .try_into()
-            .unwrap();
-    assert_eq!(postgres, DriverKind::Postgres);
+    let sqlite: DriverConfig = toml::from_str("value = \"sqlite\"")?;
+    assert_eq!(sqlite.value, DriverKind::Sqlite);
+
+    let postgres: DriverConfig = toml::from_str("value = \"postgres\"")?;
+    assert_eq!(postgres.value, DriverKind::Postgres);
+    Ok(())
 }

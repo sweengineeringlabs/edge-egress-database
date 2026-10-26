@@ -1,6 +1,6 @@
 //! [`DatabaseConfig`] — backend-owned `[database]` TOML contract.
 
-use swe_edge_configbuilder::{ConfigError, FeatureMetadata, OptionalSection};
+use configbuilder::{ConfigError, FeatureMetadata, OptionalSection};
 
 use crate::api::types::driver_kind::DriverKind;
 
@@ -88,26 +88,26 @@ impl OptionalSection for DatabaseConfig {
 
     fn validate_enabled(&self) -> Result<(), ConfigError> {
         if self.url.trim().is_empty() {
-            return Err(ConfigError::validation(
-                Self::section_name(),
-                "`url` must be non-empty",
-            ));
+            return Err(ConfigError::Validation {
+                section: Self::section_name().to_string(),
+                reason: "`url` must be non-empty".to_string(),
+            });
         }
         if self.max_connections == 0 {
-            return Err(ConfigError::validation(
-                Self::section_name(),
-                "`max_connections` must be >= 1",
-            ));
+            return Err(ConfigError::Validation {
+                section: Self::section_name().to_string(),
+                reason: "`max_connections` must be >= 1".to_string(),
+            });
         }
         let scheme = self.driver.url_scheme();
         if !self.url.starts_with(scheme) {
-            return Err(ConfigError::validation(
-                Self::section_name(),
-                format!(
+            return Err(ConfigError::Validation {
+                section: Self::section_name().to_string(),
+                reason: format!(
                     "driver = \"{:?}\" requires a `url` starting with \"{}\"; got \"{}\"",
                     self.driver, scheme, self.url
                 ),
-            ));
+            });
         }
         Ok(())
     }

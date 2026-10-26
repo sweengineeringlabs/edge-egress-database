@@ -17,7 +17,10 @@ async fn test_migration_runner_run_noop_returns_empty_vec() {
 async fn test_migration_runner_status_noop_returns_empty_vec() {
     let runner = MigrationSvc::noop_migration_runner();
     let result = runner.status().await.expect("noop status must succeed");
-    assert!(result.is_empty(), "noop runner must report no known migrations");
+    assert!(
+        result.is_empty(),
+        "noop runner must report no known migrations"
+    );
 }
 
 /// @covers: MigrationRunner::revert — noop runner returns NoMigrationToRevert
