@@ -6,8 +6,7 @@
 //! per ADR-008.
 
 use crate::api::error::MigrationError;
-use crate::api::types::{DatabaseConfig, DriverKind};
-use crate::spi::deadpool::db_pool::DbPool;
+use crate::api::types::{DatabaseConfig, DbPool, DriverKind};
 
 /// Namespace for deadpool pool construction operations.
 pub(crate) struct DeadpoolDatasource;
@@ -108,5 +107,50 @@ impl DeadpoolDatasource {
             ));
         }
         Ok(path.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// @covers: DeadpoolDatasource::connect — in-memory SQLite URLs are rejected
+    /// before a pool is opened; no live database required.
+    #[cfg(feature = "sqlite")]
+    #[tokio::test]
+    async fn test_connect_sqlite_rejects_in_memory_url() {
+        let cfg = DatabaseConfig {
+            driver: DriverKind::Sqlite,
+            url: "sqlite::memory:".into(),
+            max_connections: 1,
+            acquire_timeout_secs: 5,
+            idle_timeout_secs: None,
+            migrations_dir: None,
+        };
+        let result = DeadpoolDatasource::connect(&cfg).await;
+        assert!(
+            matches!(result, Err(MigrationError::Connection(_))),
+            "expected Connection error for :memory: URL, got: {result:?}"
+        );
+    }
+
+    /// @covers: DeadpoolDatasource::connect — without any driver feature the
+    /// function returns NotConfigured; no live database required.
+    #[cfg(not(any(feature = "sqlite", feature = "postgres")))]
+    #[tokio::test]
+    async fn test_connect_no_driver_feature_returns_not_configured() {
+        let cfg = DatabaseConfig {
+            driver: DriverKind::Sqlite,
+            url: "sqlite:///test.db".into(),
+            max_connections: 1,
+            acquire_timeout_secs: 5,
+            idle_timeout_secs: None,
+            migrations_dir: None,
+        };
+        let result = DeadpoolDatasource::connect(&cfg).await;
+        assert!(
+            matches!(result, Err(MigrationError::NotConfigured(_))),
+            "without driver features, connect must return NotConfigured"
+        );
     }
 }
