@@ -6,7 +6,7 @@ license      = "MIT OR Apache-2.0"
 rust-version = "1.95"
 authors      = ["SWE Engineering Labs"]
 repository   = "https://github.com/sweengineeringlabs/edge"
-description  = "Database datasource + migration bootstrap for swe-edge â€” DatabaseConfig + connect_and_migrate returning a configured, migrated deadpool (over refinery drivers) behind postgres/sqlite feature flags."
+description  = "Database datasource + migration bootstrap for swe-edge — DatabaseConfig + connect_and_migrate returning a configured, migrated deadpool (over refinery drivers) behind postgres/sqlite feature flags."
 keywords     = ["migration", "database", "refinery", "sea", "swe"]
 categories   = ["database"]
 
