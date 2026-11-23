@@ -33,7 +33,7 @@ thiserror              = "2"
 futures                = "0.3"
 serde                  = { version = "1.0", features = ["derive"] }
 tokio                  = { version = "1.52", features = ["rt", "rt-multi-thread"] }
-configbuilder = "0.8"
+configbuilder = "0.9"
 
 [dev-dependencies]
 tokio                  = { version = "1.52", features = ["macros", "rt-multi-thread"] }
@@ -41,7 +41,6 @@ tempfile               = "3"
 toml                   = "0.8"
 rusqlite               = { version = "0.31", features = ["bundled"] }
 tokio-postgres         = { version = "0.7" }
-configbuilder = "0.8"
 futures                = "0.3"
 
 [lints.rust]

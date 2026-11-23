@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- Use configbuilder 0.9 for database configuration contracts so applications can share their loader without resolving a second configuration API. Remove the identical dev dependency; integration tests use the production dependency.
+
 ## [0.2.1] — 2026-06-08
 
 Datasource + migration bootstrap using **refinery** (migrations) + **deadpool**
