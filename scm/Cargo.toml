@@ -6,7 +6,7 @@ license      = "MIT OR Apache-2.0"
 rust-version = "1.95"
 authors      = ["SWE Engineering Labs"]
 repository   = "https://github.com/sweengineeringlabs/edge"
-description  = "Database datasource + migration bootstrap for swe-edge — DatabaseConfig + connect_and_migrate returning a configured, migrated deadpool (over refinery drivers) behind postgres/sqlite feature flags."
+description  = "Database datasource + migration bootstrap for swe-edge â€” DatabaseConfig + connect_and_migrate returning a configured, migrated deadpool (over refinery drivers) behind postgres/sqlite feature flags."
 keywords     = ["migration", "database", "refinery", "sea", "swe"]
 categories   = ["database"]
 
@@ -33,7 +33,7 @@ thiserror              = "2"
 futures                = "0.3"
 serde                  = { version = "1.0", features = ["derive"] }
 tokio                  = { version = "1.52", features = ["rt", "rt-multi-thread"] }
-configbuilder = "0.8"
+configbuilder = "0.9"
 
 [dev-dependencies]
 tokio                  = { version = "1.52", features = ["macros", "rt-multi-thread"] }
@@ -41,7 +41,6 @@ tempfile               = "3"
 toml                   = "0.8"
 rusqlite               = { version = "0.31", features = ["bundled"] }
 tokio-postgres         = { version = "0.7" }
-configbuilder = "0.8"
 futures                = "0.3"
 
 [lints.rust]
